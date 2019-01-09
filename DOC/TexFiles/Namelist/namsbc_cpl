@@ -1,0 +1,27 @@
+!-----------------------------------------------------------------------
+&namsbc_cpl    !   coupled ocean/atmosphere model                       ("key_oasis3")
+!-----------------------------------------------------------------------
+!                    !     description       !  multiple  !    vector   !      vector          ! vector !
+!                    !                       ! categories !  reference  !    orientation       ! grids  !
+! send
+   sn_snd_temp   =       'weighted oce and ice' ,    'no'    ,     ''      ,         ''           ,   ''
+   sn_snd_alb    =       'weighted ice'         ,    'no'    ,     ''      ,         ''           ,   ''
+   sn_snd_thick  =       'none'                 ,    'no'   ,     ''      ,         ''           ,   ''
+   sn_snd_crt    =       'none'                 ,    'no'    , 'spherical' , 'eastward-northward' ,  'T'
+   sn_snd_co2    =       'coupled'              ,    'no'    ,     ''      ,         ''           ,   ''
+! receive
+   sn_rcv_w10m   =       'none'                 ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_taumod =       'coupled'              ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_tau    =       'oce only'             ,    'no'    , 'cartesian' , 'eastward-northward',  'U,V'
+   sn_rcv_dqnsdt =       'coupled'              ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_qsr    =       'oce and ice'          ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_qns    =       'oce and ice'          ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_emp    =       'conservative'         ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_rnf    =       'coupled'              ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_cal    =       'coupled'              ,    'no'    ,     ''      ,         ''          ,   ''
+   sn_rcv_co2    =       'coupled'              ,    'no'    ,     ''      ,         ''          ,   ''
+!
+   nn_cplmodel   =     1     !  Maximum number of models to/from which NEMO is potentialy sending/receiving data
+   ln_usecplmask = .false.   !  use a coupling mask file to merge data received from several models
+                             !   -> file cplmask.nc with the float variable called cplmask (jpi,jpj,nn_cplmodel)
+/

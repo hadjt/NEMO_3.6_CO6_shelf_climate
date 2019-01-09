@@ -1,0 +1,10 @@
+!-----------------------------------------------------------------------
+&namzdf_tmx    !   tidal mixing parameterization                        ("key_zdftmx")
+!-----------------------------------------------------------------------
+   rn_htmx     = 500.      !  vertical decay scale for turbulence (meters)
+   rn_n2min    = 1.e-8     !  threshold of the Brunt-Vaisala frequency (s-1)
+   rn_tfe      = 0.333     !  tidal dissipation efficiency
+   rn_me       = 0.2       !  mixing efficiency
+   ln_tmx_itf  = .true.    !  ITF specific parameterisation
+   rn_tfe_itf  = 1.        !  ITF tidal dissipation efficiency
+/

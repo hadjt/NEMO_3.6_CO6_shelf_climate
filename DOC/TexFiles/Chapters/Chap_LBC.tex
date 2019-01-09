@@ -1,0 +1,1035 @@
+% ================================================================
+% Chapter � Lateral Boundary Condition (LBC) 
+% ================================================================
+\chapter{Lateral Boundary Condition (LBC) }
+\label{LBC}
+\minitoc
+
+\newpage
+$\ $\newline    % force a new ligne
+
+
+%gm% add here introduction to this chapter
+
+% ================================================================
+% Boundary Condition at the Coast
+% ================================================================
+\section{Boundary Condition at the Coast (\np{rn\_shlat})}
+\label{LBC_coast}
+%--------------------------------------------nam_lbc-------------------------------------------------------
+\namdisplay{namlbc} 
+%--------------------------------------------------------------------------------------------------------------
+
+%The lateral ocean boundary conditions contiguous to coastlines are Neumann conditions for heat and salt (no flux across boundaries) and Dirichlet conditions for momentum (ranging from free-slip to "strong" no-slip). They are handled automatically by the mask system (see \S\ref{DOM_msk}). 
+
+%OPA allows land and topography grid points in the computational domain due to the presence of continents or islands, and includes the use of a full or partial step representation of bottom topography. The computation is performed over the whole domain, i.e. we do not try to restrict the computation to ocean-only points. This choice has two motivations. Firstly, working on ocean only grid points overloads the code and harms the code readability. Secondly, and more importantly, it drastically reduces the vector portion of the computation, leading to a dramatic increase of CPU time requirement on vector computers.  The current section describes how the masking affects the computation of the various terms of the equations with respect to the boundary condition at solid walls. The process of defining which areas are to be masked is described in \S\ref{DOM_msk}.
+
+Options are defined through the \ngn{namlbc} namelist variables.
+The discrete representation of a domain with complex boundaries (coastlines and 
+bottom topography) leads to arrays that include large portions where a computation 
+is not required as the model variables remain at zero. Nevertheless, vectorial 
+supercomputers are far more efficient when computing over a whole array, and the 
+readability of a code is greatly improved when boundary conditions are applied in 
+an automatic way rather than by a specific computation before or after each 
+computational loop. An efficient way to work over the whole domain while specifying 
+the boundary conditions, is to use multiplication by mask arrays in the computation. 
+A mask array is a matrix whose elements are $1$ in the ocean domain and $0$ 
+elsewhere. A simple multiplication of a variable by its own mask ensures that it will 
+remain zero over land areas. Since most of the boundary conditions consist of a 
+zero flux across the solid boundaries, they can be simply applied by multiplying 
+variables by the correct mask arrays, $i.e.$ the mask array of the grid point where 
+the flux is evaluated. For example, the heat flux in the \textbf{i}-direction is evaluated 
+at $u$-points. Evaluating this quantity as,
+
+\begin{equation} \label{Eq_lbc_aaaa}
+\frac{A^{lT} }{e_1 }\frac{\partial T}{\partial i}\equiv \frac{A_u^{lT} 
+}{e_{1u} } \; \delta _{i+1 / 2} \left[ T \right]\;\;mask_u 
+\end{equation}
+(where mask$_{u}$ is the mask array at a $u$-point) ensures that the heat flux is 
+zero inside land and at the boundaries, since mask$_{u}$ is zero at solid boundaries 
+which in this case are defined at $u$-points (normal velocity $u$ remains zero at 
+the coast) (Fig.~\ref{Fig_LBC_uv}). 
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]     \begin{center}
+\includegraphics[width=0.90\textwidth]{./TexFiles/Figures/Fig_LBC_uv.pdf}
+\caption{  \label{Fig_LBC_uv}
+Lateral boundary (thick line) at T-level. The velocity normal to the boundary is set to zero.}
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+For momentum the situation is a bit more complex as two boundary conditions 
+must be provided along the coast (one each for the normal and tangential velocities). 
+The boundary of the ocean in the C-grid is defined by the velocity-faces. 
+For example, at a given $T$-level, the lateral boundary (a coastline or an intersection 
+with the bottom topography) is made of segments joining $f$-points, and normal 
+velocity points are located between two $f-$points (Fig.~\ref{Fig_LBC_uv}). 
+The boundary condition on the normal velocity (no flux through solid boundaries) 
+can thus be easily implemented using the mask system. The boundary condition 
+on the tangential velocity requires a more specific treatment. This boundary 
+condition influences the relative vorticity and momentum diffusive trends, and is 
+required in order to compute the vorticity at the coast. Four different types of 
+lateral boundary condition are available, controlled by the value of the \np{rn\_shlat} 
+namelist parameter. (The value of the mask$_{f}$ array along the coastline is set 
+equal to this parameter.) These are:
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!p] \begin{center}
+\includegraphics[width=0.90\textwidth]{./TexFiles/Figures/Fig_LBC_shlat.pdf}
+\caption{     \label{Fig_LBC_shlat} 
+lateral boundary condition (a) free-slip ($rn\_shlat=0$) ; (b) no-slip ($rn\_shlat=2$) 
+; (c) "partial" free-slip ($0<rn\_shlat<2$) and (d) "strong" no-slip ($2<rn\_shlat$). 
+Implied "ghost" velocity inside land area is display in grey. }
+\end{center}    \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+\begin{description}
+
+\item[free-slip boundary condition (\np{rn\_shlat}=0): ]  the tangential velocity at the 
+coastline is equal to the offshore velocity, $i.e.$ the normal derivative of the 
+tangential velocity is zero at the coast, so the vorticity: mask$_{f}$ array is set 
+to zero inside the land and just at the coast (Fig.~\ref{Fig_LBC_shlat}-a).
+
+\item[no-slip boundary condition (\np{rn\_shlat}=2): ] the tangential velocity vanishes 
+at the coastline. Assuming that the tangential velocity decreases linearly from 
+the closest ocean velocity grid point to the coastline, the normal derivative is 
+evaluated as if the velocities at the closest land velocity gridpoint and the closest 
+ocean velocity gridpoint were of the same magnitude but in the opposite direction 
+(Fig.~\ref{Fig_LBC_shlat}-b). Therefore, the vorticity along the coastlines is given by: 
+
+\begin{equation*}
+\zeta \equiv 2 \left(\delta_{i+1/2} \left[e_{2v} v \right] - \delta_{j+1/2} \left[e_{1u} u \right] \right) / \left(e_{1f} e_{2f} \right) \ ,
+\end{equation*}
+where $u$ and $v$ are masked fields. Setting the mask$_{f}$ array to $2$ along 
+the coastline provides a vorticity field computed with the no-slip boundary condition, 
+simply by multiplying it by the mask$_{f}$ :
+\begin{equation} \label{Eq_lbc_bbbb}
+\zeta \equiv \frac{1}{e_{1f} {\kern 1pt}e_{2f} }\left( {\delta _{i+1/2} 
+\left[ {e_{2v} \,v} \right]-\delta _{j+1/2} \left[ {e_{1u} \,u} \right]} 
+\right)\;\mbox{mask}_f 
+\end{equation}
+
+\item["partial" free-slip boundary condition (0$<$\np{rn\_shlat}$<$2): ] the tangential 
+velocity at the coastline is smaller than the offshore velocity, $i.e.$ there is a lateral 
+friction but not strong enough to make the tangential velocity at the coast vanish 
+(Fig.~\ref{Fig_LBC_shlat}-c). This can be selected by providing a value of mask$_{f}$ 
+strictly inbetween $0$ and $2$.
+
+\item["strong" no-slip boundary condition (2$<$\np{rn\_shlat}): ] the viscous boundary 
+layer is assumed to be smaller than half the grid size (Fig.~\ref{Fig_LBC_shlat}-d). 
+The friction is thus larger than in the no-slip case.
+
+\end{description}
+
+Note that when the bottom topography is entirely represented by the $s$-coor-dinates 
+(pure $s$-coordinate), the lateral boundary condition on tangential velocity is of much 
+less importance as it is only applied next to the coast where the minimum water depth 
+can be quite shallow.
+
+The alternative numerical implementation of the no-slip boundary conditions for an 
+arbitrary coast line of \citet{Shchepetkin1996} is also available through the 
+\key{noslip\_accurate} CPP key. It is based on a fourth order evaluation of the shear at the 
+coast which, in turn, allows a true second order scheme in the interior of the domain 
+($i.e.$ the numerical boundary scheme simulates the truncation error of the numerical 
+scheme used in the interior of the domain). \citet{Shchepetkin1996} found that such a 
+technique considerably improves the quality of the numerical solution. In \NEMO, such 
+spectacular improvements have not been found in the half-degree global ocean 
+(ORCA05), but significant reductions of numerically induced coastal upwellings were 
+found in an eddy resolving simulation of the Alboran Sea \citep{Olivier_PhD01}. 
+Nevertheless, since a no-slip boundary condition is not recommended in an eddy 
+permitting or resolving simulation \citep{Penduff_al_OS07}, the use of this option is also 
+not recommended.
+
+In practice, the no-slip accurate option changes the way the curl is evaluated at the 
+coast (see \mdl{divcur} module), and requires the nature of each coastline grid point 
+(convex or concave corners, straight north-south or east-west coast) to be specified.  
+This is performed in routine \rou{dom\_msk\_nsa} in the \mdl{domask} module.
+
+% ================================================================
+% Boundary Condition around the Model Domain
+% ================================================================
+\section{Model Domain Boundary Condition (\np{jperio})}
+\label{LBC_jperio}
+
+At the model domain boundaries several choices are offered: closed, cyclic east-west, 
+south symmetric across the equator, a north-fold, and combination closed-north fold 
+or cyclic-north-fold. The north-fold boundary condition is associated with the 3-pole ORCA mesh. 
+
+% -------------------------------------------------------------------------------------------------------------
+%        Closed, cyclic, south symmetric (\np{jperio} = 0, 1 or 2) 
+% -------------------------------------------------------------------------------------------------------------
+\subsection{Closed, cyclic, south symmetric (\np{jperio} = 0, 1 or 2)}
+\label{LBC_jperio012}
+
+The choice of closed, cyclic or symmetric model domain boundary condition is made 
+by setting \np{jperio} to 0, 1 or 2 in namelist \ngn{namcfg}. Each time such a boundary 
+condition is needed, it is set by a call to routine \mdl{lbclnk}. The computation of 
+momentum and tracer trends proceeds from $i=2$ to $i=jpi-1$ and from $j=2$ to 
+$j=jpj-1$, $i.e.$ in the model interior. To choose a lateral model boundary condition 
+is to specify the first and last rows and columns of the model variables. 
+
+\begin{description}
+
+\item[For closed boundary (\textit{jperio=0})], solid walls are imposed at all model 
+boundaries: first and last rows and columns are set to zero.
+
+\item[For cyclic east-west boundary (\textit{jperio=1})], first and last rows are set 
+to zero (closed) whilst the first column is set to the value of the last-but-one column 
+and the last column to the value of the second one (Fig.~\ref{Fig_LBC_jperio}-a). 
+Whatever flows out of the eastern (western) end of the basin enters the western 
+(eastern) end. Note that there is no option for north-south cyclic or for doubly 
+cyclic cases.
+
+\item[For symmetric boundary condition across the equator (\textit{jperio=2})], 
+last rows, and first and last columns are set to zero (closed). The row of symmetry 
+is chosen to be the $u$- and $T-$points equator line ($j=2$, i.e. at the southern 
+end of the domain). For arrays defined at $u-$ or $T-$points, the first row is set 
+to the value of the third row while for most of $v$- and $f$-point arrays ($v$, $\zeta$, 
+$j\psi$, but \gmcomment{not sure why this is "but"} scalar arrays such as eddy coefficients) 
+the first row is set to minus the value of the second row (Fig.~\ref{Fig_LBC_jperio}-b). 
+Note that this boundary condition is not yet available for the case of a massively 
+parallel computer (\textbf{key{\_}mpp} defined).
+
+\end{description}
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]     \begin{center}
+\includegraphics[width=1.0\textwidth]{./TexFiles/Figures/Fig_LBC_jperio.pdf}
+\caption{    \label{Fig_LBC_jperio}
+setting of (a) east-west cyclic  (b) symmetric across the equator boundary conditions.}
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+% -------------------------------------------------------------------------------------------------------------
+%        North fold (\textit{jperio = 3 }to $6)$ 
+% -------------------------------------------------------------------------------------------------------------
+\subsection{North-fold (\textit{jperio = 3 }to $6)$ }
+\label{LBC_north_fold}
+
+The north fold boundary condition has been introduced in order to handle the north 
+boundary of a three-polar ORCA grid. Such a grid has two poles in the northern hemisphere. 
+\colorbox{yellow}{to be completed...}
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]    \begin{center}
+\includegraphics[width=0.90\textwidth]{./TexFiles/Figures/Fig_North_Fold_T.pdf}
+\caption{    \label{Fig_North_Fold_T} 
+North fold boundary with a $T$-point pivot and cyclic east-west boundary condition 
+($jperio=4$), as used in ORCA 2, 1/4, and 1/12. Pink shaded area corresponds 
+to the inner domain mask (see text). }
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+% ====================================================================
+% Exchange with neighbouring processors 
+% ====================================================================
+\section  [Exchange with neighbouring processors (\textit{lbclnk}, \textit{lib\_mpp})]
+		{Exchange with neighbouring processors (\mdl{lbclnk}, \mdl{lib\_mpp})}
+\label{LBC_mpp}
+
+For massively parallel processing (mpp), a domain decomposition method is used. 
+The basic idea of the method is to split the large computation domain of a numerical 
+experiment into several smaller domains and solve the set of equations by addressing 
+independent local problems. Each processor has its own local memory and computes 
+the model equation over a subdomain of the whole model domain. The subdomain 
+boundary conditions are specified through communications between processors 
+which are organized by explicit statements (message passing method). 
+
+A big advantage is that the method does not need many modifications of the initial 
+FORTRAN code. From the modeller's point of view, each sub domain running on 
+a processor is identical to the "mono-domain" code. In addition, the programmer 
+manages the communications between subdomains, and the code is faster when 
+the number of processors is increased. The porting of OPA code on an iPSC860 
+was achieved during Guyon's PhD [Guyon et al. 1994, 1995] in collaboration with 
+CETIIS and ONERA. The implementation in the operational context and the studies 
+of performance on a T3D and T3E Cray computers have been made in collaboration 
+with IDRIS and CNRS. The present implementation is largely inspired by Guyon's 
+work  [Guyon 1995].
+
+The parallelization strategy is defined by the physical characteristics of the 
+ocean model. Second order finite difference schemes lead to local discrete 
+operators that depend at the very most on one neighbouring point. The only 
+non-local computations concern the vertical physics (implicit diffusion, 1.5 
+turbulent closure scheme, ...) (delocalization over the whole water column), 
+and the solving of the elliptic equation associated with the surface pressure 
+gradient computation (delocalization over the whole horizontal domain). 
+Therefore, a pencil strategy is used for the data sub-structuration 
+\gmcomment{no idea what this means!}
+: the 3D initial domain is laid out on local processor 
+memories following a 2D horizontal topological splitting. Each sub-domain 
+computes its own surface and bottom boundary conditions and has a side 
+wall overlapping interface which defines the lateral boundary conditions for 
+computations in the inner sub-domain. The overlapping area consists of the 
+two rows at each edge of the sub-domain. After a computation, a communication 
+phase starts: each processor sends to its neighbouring processors the update 
+values of the points corresponding to the interior overlapping area to its 
+neighbouring sub-domain (i.e. the innermost of the two overlapping rows). 
+The communication is done through message passing. Usually the parallel virtual 
+language, PVM, is used as it is a standard language available on  nearly  all 
+MPP computers. More specific languages (i.e. computer dependant languages) 
+can be easily used to speed up the communication, such as SHEM on a T3E 
+computer. The data exchanges between processors are required at the very 
+place where lateral domain boundary conditions are set in the mono-domain 
+computation (\S III.10-c): the lbc\_lnk routine which manages such conditions 
+is substituted by mpplnk.F or mpplnk2.F routine when running on an MPP 
+computer (\key{mpp\_mpi} defined). It has to be pointed out that when using 
+the MPP version of the model, the east-west cyclic boundary condition is done 
+implicitly, whilst the south-symmetric boundary condition option is not available.
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]    \begin{center}
+\includegraphics[width=0.90\textwidth]{./TexFiles/Figures/Fig_mpp.pdf}
+\caption{   \label{Fig_mpp} 
+Positioning of a sub-domain when massively parallel processing is used. }
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+In the standard version of the OPA model, the splitting is regular and arithmetic.
+ the i-axis is divided by \jp{jpni} and the j-axis by \jp{jpnj} for a number of processors 
+ \jp{jpnij} most often equal to $jpni \times jpnj$ (model parameters set in 
+ \mdl{par\_oce}). Each processor is independent and without message passing 
+ or synchronous process 
+ \gmcomment{how does a synchronous process relate to this?}, 
+ programs run alone and access just its own local memory. For this reason, the 
+ main model dimensions are now the local dimensions of the subdomain (pencil) 
+ that are named \jp{jpi}, \jp{jpj}, \jp{jpk}. These dimensions include the internal 
+ domain and the overlapping rows. The number of rows to exchange (known as 
+ the halo) is usually set to one (\jp{jpreci}=1, in \mdl{par\_oce}). The whole domain 
+ dimensions are named \np{jpiglo}, \np{jpjglo} and \jp{jpk}. The relationship between 
+ the whole domain and a sub-domain is:
+\begin{eqnarray} 
+      jpi & = & ( jpiglo-2*jpreci + (jpni-1) ) / jpni + 2*jpreci  \nonumber \\
+      jpj & = & ( jpjglo-2*jprecj + (jpnj-1) ) / jpnj + 2*jprecj  \label{Eq_lbc_jpi}
+\end{eqnarray}
+where \jp{jpni}, \jp{jpnj} are the number of processors following the i- and j-axis.
+
+\colorbox{yellow}{Figure IV.3: example of a domain splitting with 9 processors and 
+no east-west cyclic boundary conditions.}
+
+One also defines variables nldi and nlei which correspond to the internal 
+domain bounds, and the variables nimpp and njmpp which are the position 
+of the (1,1) grid-point in the global domain. An element of $T_{l}$, a local array 
+(subdomain) corresponds to an element of $T_{g}$, a global array 
+(whole domain) by the relationship: 
+\begin{equation} \label{Eq_lbc_nimpp}
+T_{g} (i+nimpp-1,j+njmpp-1,k) = T_{l} (i,j,k),
+\end{equation}
+with  $1 \leq i \leq jpi$, $1  \leq j \leq jpj $ , and  $1  \leq k \leq jpk$.
+
+Processors are numbered from 0 to $jpnij-1$, the number is saved in the variable 
+nproc. In the standard version, a processor has no more than four neighbouring 
+processors named nono (for north), noea (east), noso (south) and nowe (west) 
+and two variables, nbondi and nbondj, indicate the relative position of the processor 
+\colorbox{yellow}{(see Fig.IV.3)}:
+\begin{itemize}
+\item 		nbondi = -1 	an east neighbour, no west processor,
+\item 		nbondi =  0	an east neighbour, a west neighbour,
+\item 		nbondi =  1 	no east processor, a west neighbour,
+\item 		nbondi =  2 	no splitting following the i-axis.
+\end{itemize}
+During the simulation, processors exchange data with their neighbours. 
+If there is effectively a neighbour, the processor receives variables from this 
+processor on its overlapping row, and sends the data issued from internal 
+domain corresponding to the overlapping row of the other processor.
+		 
+\colorbox{yellow}{Figure IV.4: pencil splitting with the additional outer halos }
+
+
+The \NEMO model computes equation terms with the help of mask arrays (0 on land 
+points and 1 on sea points). It is easily readable and very efficient in the context of 
+a computer with vectorial architecture. However, in the case of a scalar processor, 
+computations over the land regions become more expensive in terms of CPU time. 
+It is worse when we use a complex configuration with a realistic bathymetry like the 
+global ocean where more than 50 \% of points are land points. For this reason, a 
+pre-processing tool can be used to choose the mpp domain decomposition with a 
+maximum number of only land points processors, which can then be eliminated. 
+(For example, the mpp\_optimiz tools, available from the DRAKKAR web site.) 
+This optimisation is dependent on the specific bathymetry employed. The user 
+then chooses optimal parameters \jp{jpni}, \jp{jpnj} and \jp{jpnij} with 
+$jpnij < jpni \times jpnj$, leading to the elimination of $jpni \times jpnj - jpnij$ 
+land processors. When those parameters are specified in module \mdl{par\_oce}, 
+the algorithm in the \rou{inimpp2} routine sets each processor's parameters (nbound, 
+nono, noea,...) so that the land-only processors are not taken into account. 
+
+\colorbox{yellow}{Note that the inimpp2 routine is general so that the original inimpp 
+routine should be suppressed from the code.}
+
+When land processors are eliminated, the value corresponding to these locations in 
+the model output files is zero. Note that this is a problem for a mesh output file written 
+by such a model configuration, because model users often divide by the scale factors 
+($e1t$, $e2t$, etc) and do not expect the grid size to be zero, even on land. It may be 
+best not to eliminate land processors when running the model especially to write the 
+mesh files as outputs (when \np{nn\_msh} namelist parameter differs from 0).
+%%
+\gmcomment{Steven : dont understand this, no land processor means no output file 
+covering this part of globe; its only when files are stitched together into one that you 
+can leave a hole}
+%%
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!ht]     \begin{center}
+\includegraphics[width=0.90\textwidth]{./TexFiles/Figures/Fig_mppini2.pdf}
+\caption {    \label{Fig_mppini2}
+Example of Atlantic domain defined for the CLIPPER projet. Initial grid is 
+composed of 773 x 1236 horizontal points. 
+(a) the domain is split onto 9 \time 20 subdomains (jpni=9, jpnj=20). 
+52 subdomains are land areas. 
+(b) 52 subdomains are eliminated (white rectangles) and the resulting number 
+of processors really used during the computation is jpnij=128.}
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+% ================================================================
+% Open Boundary Conditions 
+% ================================================================
+\section{Open Boundary Conditions (\key{obc}) (OBC)}
+\label{LBC_obc}
+%-----------------------------------------nam_obc  -------------------------------------------
+%-    nobc_dta    =    0     !  = 0 the obc data are equal to the initial state
+%-                           !  = 1 the obc data are read in 'obc   .dta' files
+%-    rn_dpein      =    1.    !  ???
+%-    rn_dpwin      =    1.    !  ???
+%-    rn_dpnin      =   30.    !  ???
+%-    rn_dpsin      =    1.    !  ???
+%-    rn_dpeob      = 1500.    !  time relaxation (days) for the east  open boundary
+%-    rn_dpwob      =   15.    !    "        "           for the west  open boundary
+%-    rn_dpnob      =  150.    !    "        "           for the north open boundary
+%-    rn_dpsob      =   15.    !    "        "           for the south open boundary
+%-    ln_obc_clim = .true.   !  climatological obc data files (default T)
+%-    ln_vol_cst  = .true.   !  total volume conserved
+\namdisplay{namobc} 
+
+It is often necessary to implement a model configuration limited to an oceanic 
+region or a basin, which communicates with the rest of the global ocean through 
+''open boundaries''. As stated by \citet{Roed1986}, an open boundary is a 
+computational border where the aim of the calculations is to allow the perturbations 
+generated inside the computational domain to leave it without deterioration of the 
+inner model solution. However, an open boundary also has to let information from 
+the outer ocean enter the model and should support inflow and outflow conditions. 
+
+The open boundary package OBC is the first open boundary option developed in 
+NEMO (originally in OPA8.2). It allows the user to 
+\begin{itemize}
+\item tell the model that a boundary is ''open'' and not closed by a wall, for example 
+by modifying the calculation of the divergence of velocity there;
+\item impose values of tracers and velocities at that boundary (values which may 
+be taken from a climatology): this is the``fixed OBC'' option. 
+\item calculate boundary values by a sophisticated algorithm combining radiation 
+and relaxation (``radiative OBC'' option)
+\end{itemize}
+
+Options are defined through the \ngn{namobc} namelist variables.
+The package resides in the OBC directory. It is described here in four parts: the 
+boundary geometry (parameters to be set in \mdl{obc\_par}), the forcing data at 
+the boundaries (module \mdl{obcdta}),  the radiation algorithm involving the 
+namelist and module \mdl{obcrad}, and a brief presentation of boundary update 
+and restart files.
+
+%----------------------------------------------
+\subsection{Boundary geometry}
+\label{OBC_geom}
+%
+First one has to realize that open boundaries may not necessarily be located 
+at the extremities of the computational domain. They may exist in the middle 
+of the domain, for example at Gibraltar Straits if one wants to avoid including 
+the Mediterranean in an Atlantic domain. This flexibility has been found necessary 
+for the CLIPPER project \citep{Treguier_al_JGR01}. Because of the complexity of the 
+geometry of ocean basins, it may even be necessary to have more than one 
+''west'' open boundary, more than one ''north'', etc. This is not possible with 
+the OBC option: only one open boundary of each kind, west, east, south and 
+north is allowed; these names refer to the grid geometry (not to the direction 
+of the geographical ''west'', ''east'', etc).
+
+The open boundary geometry is set by a series of parameters in the module 
+\mdl{obc\_par}. For an eastern open boundary, parameters are \jp{lp\_obc\_east} 
+(true if an east open boundary exists), \jp{jpieob} the $i$-index along which 
+the eastern open boundary (eob) is located, \jp{jpjed} the $j$-index at which 
+it starts, and \jp{jpjef} the $j$-index where it ends (note $d$ is for ''d\'{e}but'' 
+and $f$ for ''fin'' in French). Similar parameters exist for the west, south and 
+north cases (Table~\ref{Tab_obc_param}).
+
+
+%--------------------------------------------------TABLE--------------------------------------------------
+\begin{table}[htbp]     \begin{center}    \begin{tabular}{|l|c|c|c|}
+\hline
+Boundary and  & Constant index  & Starting index (d\'{e}but) & Ending index (fin) \\
+Logical flag  &                 &                            &                     \\
+\hline
+West          & \jp{jpiwob} $>= 2$         &  \jp{jpjwd}$>= 2$          &  \jp{jpjwf}<= \np{jpjglo}-1 \\
+lp\_obc\_west & $i$-index of a $u$ point   & $j$ of a $T$ point   &$j$ of a $T$ point \\
+\hline
+East            & \jp{jpieob}$<=$\np{jpiglo}-2&\jp{jpjed} $>= 2$         & \jp{jpjef}$<=$ \np{jpjglo}-1 \\
+ lp\_obc\_east  & $i$-index of a $u$ point    & $j$ of a $T$ point & $j$ of a $T$ point \\
+\hline
+South           & \jp{jpjsob} $>= 2$         & \jp{jpisd} $>= 2$          & \jp{jpisf}$<=$\np{jpiglo}-1 \\
+lp\_obc\_south  & $j$-index of a $v$ point   & $i$ of a $T$ point   & $i$ of a $T$ point \\
+\hline
+North           & \jp{jpjnob} $<=$ \np{jpjglo}-2& \jp{jpind} $>= 2$        & \jp{jpinf}$<=$\np{jpiglo}-1 \\
+lp\_obc\_north  & $j$-index of a $v$ point      & $i$  of a $T$ point & $i$ of a $T$ point \\
+\hline
+\end{tabular}    \end{center}
+\caption{     \label{Tab_obc_param}
+Names of different indices relating to the open boundaries. In the case 
+of a completely open ocean domain with four ocean boundaries, the parameters 
+take exactly the values indicated.}
+\end{table}
+%------------------------------------------------------------------------------------------------------------
+
+The open boundaries must be along coordinate lines. On the C-grid, the boundary 
+itself is along a line of normal velocity points: $v$ points for a zonal open boundary 
+(the south or north one), and $u$ points for a meridional open boundary (the west 
+or east one). Another constraint is that there still must be a row of masked points 
+all around the domain, as if the domain were a closed basin (unless periodic conditions 
+are used together with open boundary conditions). Therefore, an open boundary 
+cannot be located at the first/last index, namely, 1, \jp{jpiglo} or \jp{jpjglo}. Also, 
+the open boundary algorithm involves calculating the normal velocity points situated 
+just on the boundary, as well as the tangential velocity and temperature and salinity 
+just outside the boundary. This means that for a west/south boundary, normal 
+velocities and temperature are calculated at the same index \jp{jpiwob} and 
+\jp{jpjsob}, respectively. For an east/north boundary, the normal velocity is 
+calculated at index \jp{jpieob} and \jp{jpjnob}, but the ``outside'' temperature is 
+at index \jp{jpieob}+1 and \jp{jpjnob}+1. This means that \jp{jpieob}, \jp{jpjnob} 
+cannot be bigger than \jp{jpiglo}-2, \jp{jpjglo}-2. 
+
+
+The starting and ending indices are to be thought of as $T$ point indices: in many 
+cases they indicate the first land $T$-point, at the extremity of an open boundary 
+(the coast line follows the $f$ grid points, see Fig.~\ref{Fig_obc_north} for an example 
+of a northern open boundary). All indices are relative to the global domain. In the 
+free surface case it is possible to have ``ocean corners'', that is, an open boundary 
+starting and ending in the ocean.
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]     \begin{center}
+\includegraphics[width=0.70\textwidth]{./TexFiles/Figures/Fig_obc_north.pdf}
+\caption{    \label{Fig_obc_north}
+Localization of the North open boundary points.}
+\end{center}     \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+Although not compulsory, it is highly recommended that the bathymetry in the 
+vicinity of an open boundary follows the following rule: in the direction perpendicular 
+to the open line, the water depth should be constant for 4 grid points. This is in 
+order to ensure that the radiation condition, which involves model variables next 
+to the boundary, is calculated in a consistent way. On Fig.\ref{Fig_obc_north} we 
+indicate by an $=$ symbol, the points which should have the same depth. It means 
+that at the 4 points near the boundary, the bathymetry is cylindrical \gmcomment{not sure 
+why cylindrical}. The line behind the open $T$-line must be 0 in the bathymetry file 
+(as shown on Fig.\ref{Fig_obc_north} for example).
+
+%----------------------------------------------
+\subsection{Boundary data}
+\label{OBC_data}
+
+It is necessary to provide information at the boundaries. The simplest case is 
+when this information does not change in time and is equal to the initial conditions 
+(namelist variable \np{nn\_obcdta}=0). This is the case for the standard configuration 
+EEL5 with open boundaries. When (\np{nn\_obcdta}=1), open boundary information 
+is read from netcdf files. For convenience the input files are supposed to be similar 
+to the ''history'' NEMO output files, for dimension names and variable names. 
+Open boundary arrays must be dimensioned according to the parameters of table~
+\ref{Tab_obc_param}: for example, at the western boundary, arrays have a 
+dimension of \jp{jpwf}-\jp{jpwd}+1 in the horizontal and \jp{jpk} in the vertical. 
+
+When ocean observations are used to generate the boundary data (a hydrographic 
+section for example, as in \citet{Treguier_al_JGR01}) it happens often that only the velocity 
+normal to the boundary is known, which is the reason why the initial OBC code 
+assumes that only $T$, $S$, and the normal velocity ($u$ or $v$) needs to be 
+specified. As more and more global model solutions and ocean analysis products 
+become available, it will be possible to provide information about all the variables 
+(including the tangential velocity) so that the specification of four variables at each 
+boundaries will become standard. For the sea surface height, one must distinguish 
+between the filtered free surface case and the time-splitting or explicit treatment of 
+the free surface.
+ In the first case, it is assumed that the user does not wish to represent high 
+ frequency motions such as tides. The boundary condition is thus one of zero 
+ normal gradient of sea surface height at the open boundaries, following \citet{Marchesiello2001}. 
+No information other than the total velocity needs to be provided at the open 
+boundaries in that case. In the other two cases (time splitting or explicit free surface), 
+the user must provide barotropic information (sea surface height and barotropic 
+velocities) and the use of the Flather algorithm for barotropic variables is 
+recommanded. However, this algorithm has not yet been fully tested and bugs 
+remain in NEMO v2.3. Users should read the code carefully before using it. Finally, 
+in the case of the rigid lid approximation the barotropic streamfunction must be 
+provided, as documented in \citet{Treguier_al_JGR01}). This option is no longer 
+recommended but remains in NEMO V2.3.
+
+One frequently encountered case is when an open boundary domain is constructed 
+from a global or larger scale NEMO configuration. Assuming the domain corresponds 
+to indices $ib:ie$, $jb:je$ of the global domain, the bathymetry and forcing of the 
+small domain can be created by using the following netcdf utility on the global files: 
+ncks -F $-d\;x,ib,ie$ $-d\;y,jb,je$ (part of the nco series of utilities, 
+see their \href{http://nco.sourceforge.net}{website}). 
+The open boundary files can be constructed using ncks 
+commands, following table~\ref{Tab_obc_ind}. 
+
+%--------------------------------------------------TABLE--------------------------------------------------
+\begin{table}[htbp]     \begin{center}      \begin{tabular}{|l|c|c|c|c|c|}
+\hline
+OBC  & Variable   & file name      & Index  & Start  & end  \\
+West &  T,S       &   obcwest\_TS.nc &  $ib$+1     &   $jb$+1 &  $je-1$  \\
+     &    U       &   obcwest\_U.nc  &  $ib$+1     &   $jb$+1 &  $je-1$  \\ 
+     &    V       &   obcwest\_V.nc  &  $ib$+1     &   $jb$+1 &  $je-1$  \\       
+\hline
+East &  T,S       &   obceast\_TS.nc &  $ie$-1     &   $jb$+1 &  $je-1$  \\
+     &    U       &   obceast\_U.nc  &  $ie$-2     &   $jb$+1 &  $je-1$  \\ 
+     &    V       &   obceast\_V.nc  &  $ie$-1     &   $jb$+1 &  $je-1$  \\       
+\hline         
+South &  T,S      &   obcsouth\_TS.nc &  $jb$+1     &  $ib$+1 &  $ie-1$  \\
+      &    U      &   obcsouth\_U.nc  &  $jb$+1     &  $ib$+1 &  $ie-1$  \\ 
+      &    V      &   obcsouth\_V.nc  &  $jb$+1     &  $ib$+1 &  $ie-1$  \\    
+\hline
+North &  T,S      &   obcnorth\_TS.nc &  $je$-1     &  $ib$+1 &  $ie-1$  \\
+      &    U      &   obcnorth\_U.nc  &  $je$-1     &  $ib$+1 &  $ie-1$  \\ 
+      &    V      &   obcnorth\_V.nc  &  $je$-2     &  $ib$+1 &  $ie-1$  \\  
+\hline
+\end{tabular}     \end{center}
+\caption{    \label{Tab_obc_ind}
+Requirements for creating open boundary files from a global configuration, 
+appropriate for the subdomain of indices $ib:ie$, $jb:je$. ``Index'' designates the 
+$i$ or $j$ index along which the $u$ of $v$ boundary point is situated in the global 
+configuration, starting and ending with the $j$ or $i$ indices indicated. 
+For example, to generate file obcnorth\_V.nc, use the command ncks 
+$-F$ $-d\;y,je-2$  $-d\;x,ib+1,ie-1$ } 
+\end{table}
+%-----------------------------------------------------------------------------------------------------------
+
+It is assumed that the open boundary files contain the variables for the period of 
+the model integration. If the boundary files contain one time frame, the boundary 
+data is held fixed in time. If the files contain 12 values, it is assumed that the input 
+is a climatology for a repeated annual cycle (corresponding to the case \np{ln\_obc\_clim} 
+=true). The case of an arbitrary number of time frames is not yet implemented 
+correctly; the user is required to write his own code in the module \mdl{obc\_dta} 
+to deal with this situation. 
+
+\subsection{Radiation algorithm}
+\label{OBC_rad}
+
+The art of open boundary management consists in applying a constraint strong 
+enough that the inner domain "feels" the rest of the ocean, but weak enough
+that perturbations are allowed to leave the domain with minimum false reflections 
+of energy. The constraints are specified separately at each boundary as time 
+scales for ''inflow'' and ''outflow'' as defined below. The time scales are set (in days) 
+by namelist parameters such as \np{rn\_dpein}, \np{rn\_dpeob} for the eastern open 
+boundary for example. When both time scales are zero for a given boundary 
+($e.g.$ for the western boundary, \jp{lp\_obc\_west}=true, \np{rn\_dpwob}=0 and 
+\np{rn\_dpwin}=0) this means that the boundary in question is a ''fixed '' boundary 
+where the solution is set exactly by the boundary data. This is not recommended, 
+except in combination with increased viscosity in a ''sponge'' layer next to the 
+boundary in order to avoid spurious reflections.  
+
+
+The radiation\/relaxation \gmcomment{the / doesnt seem to appear in the output} 
+algorithm is applied when either relaxation time (for ''inflow'' or ''outflow'') is 
+non-zero. It has been developed and tested in the SPEM model and its 
+successor ROMS \citep{Barnier1996, Marchesiello2001}, which is an 
+$s$-coordinate model on an Arakawa C-grid. Although the algorithm has 
+been numerically successful in the CLIPPER Atlantic models, the physics 
+do not work as expected \citep{Treguier_al_JGR01}. Users are invited to consider 
+open boundary conditions (OBC hereafter) with some scepticism 
+\citep{Durran2001, Blayo2005}.
+
+The first part of the algorithm calculates a phase velocity to determine 
+whether perturbations tend to propagate toward, or away from, the 
+boundary. Let us consider a model variable $\phi$. 
+The phase velocities ($C_{\phi x}$,$C_{\phi y}$) for the variable $\phi$, 
+in the directions normal and tangential to the boundary are
+\begin{equation} \label{Eq_obc_cphi}
+C_{\phi x} = \frac{ -\phi_{t} }{ ( \phi_{x}^{2} + \phi_{y}^{2}) } \phi_{x} 
+\;\;\;\;\; \;\;\; 
+C_{\phi y} = \frac{ -\phi_{t} }{ ( \phi_{x}^{2} + \phi_{y}^{2}) } \phi_{y}. 
+\end{equation}
+Following \citet{Treguier_al_JGR01} and \citet{Marchesiello2001} we retain only 
+the normal component of the velocity, $C_{\phi x}$, setting $C_{\phi y} =0$ 
+(but unlike the original Orlanski radiation algorithm we retain $\phi_{y}$ in 
+the expression for $C_{\phi x}$).  
+
+The discrete form of (\ref{Eq_obc_cphi}), described by \citet{Barnier1998},
+takes into account the two rows of grid points situated inside the domain 
+next to the boundary, and the three previous time steps ($n$, $n-1$,
+and $n-2$). The same equation can then be discretized at the boundary at
+time steps $n-1$, $n$ and $n+1$ \gmcomment{since the original was three time-level} 
+in order to extrapolate for the new boundary value $\phi^{n+1}$. 
+
+In the open boundary algorithm as implemented in NEMO v2.3, the new boundary 
+values are updated differently depending on the sign of $C_{\phi x}$. Let us take 
+an eastern boundary as an example. The solution for variable $\phi$ at the 
+boundary is given by a generalized wave equation with phase velocity $C_{\phi}$, 
+with the addition of a relaxation term, as:
+\begin{eqnarray}
+\phi_{t} &  =  & -C_{\phi x} \phi_{x} + \frac{1}{\tau_{o}} (\phi_{c}-\phi) 
+                        \;\;\; \;\;\; \;\;\; (C_{\phi x} > 0), \label{Eq_obc_rado} \\
+\phi_{t} &  =  & \frac{1}{\tau_{i}} (\phi_{c}-\phi) 
+\;\;\; \;\;\; \;\;\;\;\;\; (C_{\phi x} < 0), \label{Eq_obc_radi}
+\end{eqnarray}
+where $\phi_{c}$ is the estimate of $\phi$ at the boundary, provided as boundary 
+data. Note that in (\ref{Eq_obc_rado}), $C_{\phi x}$ is bounded by the ratio 
+$\delta x/\delta t$ for stability reasons. When $C_{\phi x}$ is eastward (outward 
+propagation), the radiation condition (\ref{Eq_obc_rado}) is used. 
+When  $C_{\phi x}$ is westward (inward propagation), (\ref{Eq_obc_radi}) is 
+used with a strong relaxation to climatology (usually $\tau_{i}=\np{rn\_dpein}=$1~day).
+Equation (\ref{Eq_obc_radi}) is solved with a Euler time-stepping scheme. As a 
+consequence, setting $\tau_{i}$ smaller than, or equal to the time step is equivalent 
+to a fixed boundary condition. A time scale of one day is usually a good compromise 
+which guarantees that the inflow conditions remain close to climatology while ensuring 
+numerical stability. 
+
+In  the case of a western boundary located in the Eastern Atlantic, \citet{Penduff_al_JGR00} 
+have been able to implement the radiation algorithm without any boundary data, 
+using persistence from the previous time step instead. This solution has not worked 
+in other cases \citep{Treguier_al_JGR01}, so that the use of boundary data is recommended. 
+Even in the outflow condition (\ref{Eq_obc_rado}), we have found it desirable to 
+maintain a weak relaxation to climatology. The time step is usually chosen so as to 
+be larger than typical turbulent scales (of order 1000~days \gmcomment{or maybe seconds?}).
+
+The radiation condition is applied to the model variables: temperature, salinity, 
+tangential and normal velocities. For normal and tangential velocities, $u$ and $v$, 
+radiation is applied with phase velocities calculated from $u$ and $v$ respectively.  
+For the radiation of tracers, we use the phase velocity calculated from the tangential 
+velocity in order to avoid calculating too many independent radiation velocities and 
+because tangential velocities and tracers have the same position along the boundary 
+on a C-grid.  
+
+\subsection{Domain decomposition (\key{mpp\_mpi})}
+\label{OBC_mpp}
+When \key{mpp\_mpi} is active in the code, the computational domain is divided 
+into rectangles that are attributed each to a different processor. The open boundary 
+code is ``mpp-compatible'' up to a certain point. The radiation algorithm will not 
+work if there is an mpp subdomain boundary parallel to the open boundary at the 
+index of the boundary, or the grid point after (outside), or three grid points before 
+(inside). On the other hand, there is no problem if an mpp subdomain boundary 
+cuts the open boundary perpendicularly. These geometrical limitations must be 
+checked for by the user (there is no safeguard in the code).  
+The general principle for the open boundary mpp code is that loops over the open 
+boundaries {not sure what this means} are performed on local indices (nie0, 
+nie1, nje0, nje1 for an eastern boundary for instance) that are initialized in module 
+\mdl{obc\_ini}. Those indices have relevant values on the processors that contain 
+a segment of an open boundary. For processors that do not include an open 
+boundary segment, the indices are such that the calculations within the loops are 
+not performed.
+\gmcomment{I dont understand most of the last few sentences}
+ 
+Arrays of climatological data that are read from files are seen by all processors 
+and have the same dimensions for all (for instance, for the eastern boundary, 
+uedta(jpjglo,jpk,2)). On the other hand, the arrays for the calculation of radiation 
+are local to each processor (uebnd(jpj,jpk,3,3) for instance).  This allowed the 
+CLIPPER model for example, to save on memory where the eastern boundary 
+crossed 8 processors so that \jp{jpj} was much smaller than (\jp{jpjef}-\jp{jpjed}+1). 
+
+\subsection{Volume conservation}
+\label{OBC_vol}
+
+It is necessary to control the volume inside a domain when using open boundaries. 
+With fixed boundaries, it is enough to ensure that the total inflow/outflow has 
+reasonable values (either zero or a value compatible with an observed volume 
+balance). When using radiative boundary conditions it is necessary to have a 
+volume constraint because each open boundary works independently from the 
+others. The methodology used to control this volume is identical to the one 
+coded in the ROMS model \citep{Marchesiello2001}.
+
+
+%---------------------------------------- EXTRAS
+\colorbox{yellow}{Explain obc\_vol{\ldots}}
+
+\colorbox{yellow}{OBC algorithm for update, OBC restart, list of routines where obc key appears{\ldots}}
+
+\colorbox{yellow}{OBC rigid lid? {\ldots}}
+
+% ====================================================================
+% Unstructured open boundaries BDY 
+% ====================================================================
+\section{Unstructured Open Boundary Conditions (\key{bdy}) (BDY)}
+\label{LBC_bdy}
+
+%-----------------------------------------nambdy--------------------------------------------
+\namdisplay{nambdy} 
+%-----------------------------------------------------------------------------------------------
+%-----------------------------------------nambdy_index--------------------------------------------
+\namdisplay{nambdy_index} 
+%-----------------------------------------------------------------------------------------------
+%-----------------------------------------nambdy_dta--------------------------------------------
+\namdisplay{nambdy_dta} 
+%-----------------------------------------------------------------------------------------------
+%-----------------------------------------nambdy_dta--------------------------------------------
+\namdisplay{nambdy_dta2} 
+%-----------------------------------------------------------------------------------------------
+
+Options are defined through the \ngn{nambdy} \ngn{nambdy\_index} 
+\ngn{nambdy\_dta} \ngn{nambdy\_dta2} namelist variables.
+The BDY module is an alternative implementation of open boundary
+conditions for regional configurations. It implements the Flow
+Relaxation Scheme algorithm for temperature, salinity, velocities and
+ice fields, and the Flather radiation condition for the depth-mean
+transports. The specification of the location of the open boundary is
+completely flexible and allows for example the open boundary to follow
+an isobath or other irregular contour. 
+
+The BDY module was modelled on the OBC module and shares many features
+and a similar coding structure \citep{Chanut2005}.
+
+The BDY module is completely rewritten at NEMO 3.4 and there is a new
+set of namelists. Boundary data files used with earlier versions of
+NEMO may need to be re-ordered to work with this version. See the
+section on the Input Boundary Data Files for details.
+
+%----------------------------------------------
+\subsection{The namelists}
+\label{BDY_namelist}
+
+It is possible to define more than one boundary ``set'' and apply
+different boundary conditions to each set. The number of boundary
+sets is defined by \np{nb\_bdy}.  Each boundary set may be defined
+as a set of straight line segments in a namelist
+(\np{ln\_coords\_file}=.false.) or read in from a file
+(\np{ln\_coords\_file}=.true.). If the set is defined in a namelist,
+then the namelists nambdy\_index must be included separately, one for
+each set. If the set is defined by a file, then a
+``coordinates.bdy.nc'' file must be provided. The coordinates.bdy file
+is analagous to the usual NEMO ``coordinates.nc'' file. In the example
+above, there are two boundary sets, the first of which is defined via
+a file and the second is defined in a namelist. For more details of
+the definition of the boundary geometry see section
+\ref{BDY_geometry}.
+
+For each boundary set a boundary
+condition has to be chosen for the barotropic solution (``u2d'':
+sea-surface height and barotropic velocities), for the baroclinic
+velocities (``u3d''), and for the active tracers\footnote{The BDY
+  module does not deal with passive tracers at this version}
+(``tra''). For each set of variables there is a choice of algorithm
+and a choice for the data, eg. for the active tracers the algorithm is
+set by \np{nn\_tra} and the choice of data is set by
+\np{nn\_tra\_dta}. 
+
+The choice of algorithm is currently as follows:
+
+\mbox{}
+
+\begin{itemize}
+\item[0.] No boundary condition applied. So the solution will ``see''
+  the land points around the edge of the edge of the domain.
+\item[1.] Flow Relaxation Scheme (FRS) available for all variables. 
+\item[2.] Flather radiation scheme for the barotropic variables. The
+  Flather scheme is not compatible with the filtered free surface
+  ({\it dynspg\_ts}). 
+\end{itemize}
+
+\mbox{}
+
+The main choice for the boundary data is
+to use initial conditions as boundary data (\np{nn\_tra\_dta}=0) or to
+use external data from a file (\np{nn\_tra\_dta}=1). For the
+barotropic solution there is also the option to use tidal
+harmonic forcing either by itself or in addition to other external
+data. 
+
+If external boundary data is required then the nambdy\_dta namelist
+must be defined. One nambdy\_dta namelist is required for each boundary
+set in the order in which the boundary sets are defined in nambdy. In
+the example given, two boundary sets have been defined and so there
+are two nambdy\_dta namelists. The boundary data is read in using the
+fldread module, so the nambdy\_dta namelist is in the format required
+for fldread. For each variable required, the filename, the frequency
+of the files and the frequency of the data in the files is given. Also
+whether or not time-interpolation is required and whether the data is
+climatological (time-cyclic) data. Note that on-the-fly spatial
+interpolation of boundary data is not available at this version. 
+
+In the example namelists given, two boundary sets are defined. The
+first set is defined via a file and applies FRS conditions to
+temperature and salinity and Flather conditions to the barotropic
+variables. External data is provided in daily files (from a
+large-scale model). Tidal harmonic forcing is also used. The second
+set is defined in a namelist. FRS conditions are applied on
+temperature and salinity and climatological data is read from external
+files. 
+
+%----------------------------------------------
+\subsection{The Flow Relaxation Scheme}
+\label{BDY_FRS_scheme}
+
+The Flow Relaxation Scheme (FRS) \citep{Davies_QJRMS76,Engerdahl_Tel95},
+applies a simple relaxation of the model fields to
+externally-specified values over a zone next to the edge of the model
+domain. Given a model prognostic variable $\Phi$ 
+\begin{equation}  \label{Eq_bdy_frs1}
+\Phi(d) = \alpha(d)\Phi_{e}(d) + (1-\alpha(d))\Phi_{m}(d)\;\;\;\;\; d=1,N
+\end{equation}
+where $\Phi_{m}$ is the model solution and $\Phi_{e}$ is the specified
+external field, $d$ gives the discrete distance from the model
+boundary  and $\alpha$ is a parameter that varies from $1$ at $d=1$ to
+a small value at $d=N$. It can be shown that this scheme is equivalent
+to adding a relaxation term to the prognostic equation for $\Phi$ of
+the form:
+\begin{equation}  \label{Eq_bdy_frs2}
+-\frac{1}{\tau}\left(\Phi - \Phi_{e}\right)
+\end{equation}
+where the relaxation time scale $\tau$ is given by a function of
+$\alpha$ and the model time step $\Delta t$:
+\begin{equation}  \label{Eq_bdy_frs3}
+\tau = \frac{1-\alpha}{\alpha}  \,\rdt
+\end{equation}
+Thus the model solution is completely prescribed by the external
+conditions at the edge of the model domain and is relaxed towards the
+external conditions over the rest of the FRS zone. The application of
+a relaxation zone helps to prevent spurious reflection of outgoing
+signals from the model boundary. 
+
+The function $\alpha$ is specified as a $tanh$ function:
+\begin{equation}  \label{Eq_bdy_frs4}
+\alpha(d) = 1 - \tanh\left(\frac{d-1}{2}\right),       \quad d=1,N
+\end{equation}
+The width of the FRS zone is specified in the namelist as 
+\np{nn\_rimwidth}. This is typically set to a value between 8 and 10. 
+
+%----------------------------------------------
+\subsection{The Flather radiation scheme}
+\label{BDY_flather_scheme}
+
+The \citet{Flather_JPO94} scheme is a radiation condition on the normal, depth-mean
+transport across the open boundary. It takes the form
+\begin{equation}  \label{Eq_bdy_fla1}
+U = U_{e} + \frac{c}{h}\left(\eta - \eta_{e}\right),
+\end{equation}
+where $U$ is the depth-mean velocity normal to the boundary and $\eta$
+is the sea surface height, both from the model. The subscript $e$
+indicates the same fields from external sources. The speed of external
+gravity waves is given by $c = \sqrt{gh}$, and $h$ is the depth of the
+water column. The depth-mean normal velocity along the edge of the
+model domain is set equal to the
+external depth-mean normal velocity, plus a correction term that
+allows gravity waves generated internally to exit the model boundary.
+Note that the sea-surface height gradient in \eqref{Eq_bdy_fla1}
+is a spatial gradient across the model boundary, so that $\eta_{e}$ is
+defined on the $T$ points with $nbr=1$ and $\eta$ is defined on the
+$T$ points with $nbr=2$. $U$ and $U_{e}$ are defined on the $U$ or
+$V$ points with $nbr=1$, $i.e.$ between the two $T$ grid points.
+
+%----------------------------------------------
+\subsection{Boundary geometry}
+\label{BDY_geometry}
+
+Each open boundary set is defined as a list of points. The information
+is stored in the arrays $nbi$, $nbj$, and $nbr$ in the $idx\_bdy$
+structure.  The $nbi$ and $nbj$ arrays
+define the local $(i,j)$ indices of each point in the boundary zone
+and the $nbr$ array defines the discrete distance from the boundary
+with $nbr=1$ meaning that the point is next to the edge of the
+model domain and $nbr>1$ showing that the point is increasingly
+further away from the edge of the model domain. A set of $nbi$, $nbj$,
+and $nbr$ arrays is defined for each of the $T$, $U$ and $V$
+grids. Figure \ref{Fig_LBC_bdy_geom} shows an example of an irregular
+boundary. 
+
+The boundary geometry for each set may be defined in a namelist
+nambdy\_index or by reading in a ``coordinates.bdy.nc'' file. The
+nambdy\_index namelist defines a series of straight-line segments for
+north, east, south and west boundaries. For the northern boundary,
+\np{nbdysegn} gives the number of segments, \np{jpjnob} gives the $j$
+index for each segment and \np{jpindt} and \np{jpinft} give the start
+and end $i$ indices for each segment with similar for the other
+boundaries. These segments define a list of $T$ grid points along the
+outermost row of the boundary ($nbr\,=\, 1$). The code deduces the $U$ and
+$V$ points and also the points for $nbr\,>\, 1$ if
+$nn\_rimwidth\,>\,1$.
+
+The boundary geometry may also be defined from a
+``coordinates.bdy.nc'' file. Figure \ref{Fig_LBC_nc_header}
+gives an example of the header information from such a file. The file
+should contain the index arrays for each of the $T$, $U$ and $V$
+grids. The arrays must be in order of increasing $nbr$. Note that the
+$nbi$, $nbj$ values in the file are global values and are converted to
+local values in the code. Typically this file will be used to generate
+external boundary data via interpolation and so will also contain the
+latitudes and longitudes of each point as shown. However, this is not
+necessary to run the model. 
+
+For some choices of irregular boundary the model domain may contain
+areas of ocean which are not part of the computational domain. For
+example if an open boundary is defined along an isobath, say at the
+shelf break, then the areas of ocean outside of this boundary will
+need to be masked out. This can be done by reading a mask file defined
+as \np{cn\_mask\_file} in the nam\_bdy namelist. Only one mask file is
+used even if multiple boundary sets are defined.
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]      \begin{center}
+\includegraphics[width=1.0\textwidth]{./TexFiles/Figures/Fig_LBC_bdy_geom.pdf}
+\caption {      \label{Fig_LBC_bdy_geom}
+Example of geometry of unstructured open boundary}
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+%----------------------------------------------
+\subsection{Input boundary data files}
+\label{BDY_data}
+
+The data files contain the data arrays
+in the order in which the points are defined in the $nbi$ and $nbj$
+arrays. The data arrays are dimensioned on: a time dimension;
+$xb$ which is the index of the boundary data point in the horizontal;
+and $yb$ which is a degenerate dimension of 1 to enable the file to be
+read by the standard NEMO I/O routines. The 3D fields also have a
+depth dimension. 
+
+At Version 3.4 there are new restrictions on the order in which the
+boundary points are defined (and therefore restrictions on the order
+of the data in the file). In particular:
+
+\mbox{}
+
+\begin{enumerate}
+\item The data points must be in order of increasing $nbr$, ie. all
+  the $nbr=1$ points, then all the $nbr=2$ points etc.
+\item All the data for a particular boundary set must be in the same
+  order. (Prior to 3.4 it was possible to define barotropic data in a
+  different order to the data for tracers and baroclinic velocities). 
+\end{enumerate}
+
+\mbox{}
+
+These restrictions mean that data files used with previous versions of
+the model may not work with version 3.4. A fortran utility
+{\it bdy\_reorder} exists in the TOOLS directory which will re-order the
+data in old BDY data files. 
+
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+\begin{figure}[!t]     \begin{center}
+\includegraphics[width=1.0\textwidth]{./TexFiles/Figures/Fig_LBC_nc_header.pdf}
+\caption {     \label{Fig_LBC_nc_header} 
+Example of the header for a coordinates.bdy.nc file}
+\end{center}   \end{figure}
+%>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+%----------------------------------------------
+\subsection{Volume correction}
+\label{BDY_vol_corr}
+
+There is an option to force the total volume in the regional model to be constant, 
+similar to the option in the OBC module. This is controlled  by the \np{nn\_volctl} 
+parameter in the namelist. A value of \np{nn\_volctl}~=~0 indicates that this option is not used. 
+If  \np{nn\_volctl}~=~1 then a correction is applied to the normal velocities 
+around the boundary at each timestep to ensure that the integrated volume flow 
+through the boundary is zero. If \np{nn\_volctl}~=~2 then the calculation of 
+the volume change on the timestep includes the change due to the freshwater 
+flux across the surface and the correction velocity corrects for this as well.
+
+If more than one boundary set is used then volume correction is
+applied to all boundaries at once.
+
+\newpage
+%----------------------------------------------
+\subsection{Tidal harmonic forcing}
+\label{BDY_tides}
+
+%-----------------------------------------nambdy_tide--------------------------------------------
+\namdisplay{nambdy_tide} 
+%-----------------------------------------------------------------------------------------------
+
+Options are defined through the  \ngn{nambdy\_tide} namelist variables.
+ To be written....
+
+
+
+

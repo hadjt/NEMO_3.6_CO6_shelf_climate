@@ -1,0 +1,45 @@
+!-----------------------------------------------------------------------
+&namsbc        !   Surface Boundary Condition (surface module)
+!-----------------------------------------------------------------------
+   nn_fsbc     = 5         !  frequency of surface boundary condition computation
+                           !     (also = the frequency of sea-ice model call)
+   ln_ana      = .false.   !  analytical formulation                    (T => fill namsbc_ana )
+   ln_flx      = .false.   !  flux formulation                          (T => fill namsbc_flx )
+   ln_blk_clio = .false.   !  CLIO bulk formulation                     (T => fill namsbc_clio)
+   ln_blk_core = .true.    !  CORE bulk formulation                     (T => fill namsbc_core)
+   ln_blk_mfs  = .false.   !  MFS bulk formulation                      (T => fill namsbc_mfs )
+   ln_cpl      = .false.   !  atmosphere coupled   formulation          ( requires key_oasis3 )
+   ln_mixcpl   = .false.   !  forced-coupled mixed formulation          ( requires key_oasis3 )
+   nn_components = 0       !  configuration of the opa-sas OASIS coupling
+                           !  =0 no opa-sas OASIS coupling: default single executable configuration
+                           !  =1 opa-sas OASIS coupling: multi executable configuration, OPA component
+                           !  =2 opa-sas OASIS coupling: multi executable configuration, SAS component 
+   ln_apr_dyn  = .false.   !  Patm gradient added in ocean & ice Eqs.   (T => fill namsbc_apr )
+   nn_ice      = 2         !  =0 no ice boundary condition   ,
+                           !  =1 use observed ice-cover      ,
+                           !  =2 ice-model used                         ("key_lim3" or "key_lim2")
+   nn_ice_embd = 1         !  =0 levitating ice (no mass exchange, concentration/dilution effect)
+                           !  =1 levitating ice with mass and salt exchange but no presure effect
+                           !  =2 embedded sea-ice (full salt and mass exchanges and pressure)
+   ln_dm2dc    = .false.   !  daily mean to diurnal cycle on short wave
+   ln_rnf      = .true.    !  runoffs                                   (T   => fill namsbc_rnf)
+   nn_isf      = 0         !  ice shelf melting/freezing                (/=0 => fill namsbc_isf)
+                           !  0 =no isf                  1 = presence of ISF
+                           !  2 = bg03 parametrisation   3 = rnf file for isf
+                           !  4 = ISF fwf specified
+                           !  option 1 and 4 need ln_isfcav = .true. (domzgr)
+   ln_ssr      = .true.    !  Sea Surface Restoring on T and/or S       (T => fill namsbc_ssr)
+   nn_fwb      = 2         !  FreshWater Budget: =0 unchecked
+                           !     =1 global mean of e-p-r set to zero at each time step
+                           !     =2 annual global mean of e-p-r set to zero
+   ln_wave = .false.       !  Activate coupling with wave (either Stokes Drift or Drag coefficient, or both)  (T => fill namsbc_wave)
+   ln_cdgw = .false.       !  Neutral drag coefficient read from wave model (T => fill namsbc_wave)
+   ln_sdw  = .false.       !  Computation of 3D stokes drift                (T => fill namsbc_wave)
+   nn_lsm  = 0             !  =0 land/sea mask for input fields is not applied (keep empty land/sea mask filename field) ,
+                           !  =1:n number of iterations of land/sea mask application for input fields (fill land/sea mask filename field)
+   nn_limflx = -1          !  LIM3 Multi-category heat flux formulation (use -1 if LIM3 is not used)
+                           !  =-1  Use per-category fluxes, bypass redistributor, forced mode only, not yet implemented coupled
+                           !  = 0  Average per-category fluxes (forced and coupled mode)
+                           !  = 1  Average and redistribute per-category fluxes, forced mode only, not yet implemented coupled
+                           !  = 2  Redistribute a single flux over categories (coupled mode only)
+/

@@ -1,0 +1,22 @@
+!-----------------------------------------------------------------------
+&namcfg     !   parameters of the configuration
+!-----------------------------------------------------------------------
+   cp_cfg      =  "default"            !  name of the configuration
+   cp_cfz      =  "no zoom"            !  name of the zoom of configuration
+   jp_cfg      =       0               !  resolution of the configuration
+   jpidta      =      10               !  1st lateral dimension ( >= jpi )
+   jpjdta      =      12               !  2nd    "         "    ( >= jpj )
+   jpkdta      =      31               !  number of levels      ( >= jpk )
+   jpiglo      =      10               !  1st dimension of global domain --> i =jpidta
+   jpjglo      =      12               !  2nd    -                  -    --> j =jpjdta
+   jpizoom     =       1               !  left bottom (i,j) indices of the zoom
+   jpjzoom     =       1               !  in data domain indices
+   jperio      =       0               !  lateral cond. type (between 0 and 6)
+                                       !  = 0 closed                 ;   = 1 cyclic East-West
+                                       !  = 2 equatorial symmetric   ;   = 3 North fold T-point pivot
+                                       !  = 4 cyclic East-West AND North fold T-point pivot
+                                       !  = 5 North fold F-point pivot
+                                       !  = 6 cyclic East-West AND North fold F-point pivot
+   ln_use_jattr = .false.              !  use (T) the file attribute: open_ocean_jstart, if present
+                                       !  in netcdf input files, as the start j-row for reading
+/

@@ -1,0 +1,15 @@
+!-----------------------------------------------------------------------
+&namsbc_mfs   !   namsbc_mfs  MFS bulk formulae
+!-----------------------------------------------------------------------
+!              !  file name  ! frequency (hours) ! variable  ! time interp. !  clim  ! 'yearly'/ ! weights     ! rotation ! land/sea mask !
+!              !             !  (if <0  months)  !   name    !   (logical)  !  (T/F) ! 'monthly' ! filename    ! pairing  ! filename      !
+   sn_wndi     =   'ecmwf'   ,        6          , 'u10'     ,    .true.    , .false. , 'daily'  ,'bicubic.nc' , ''       , ''
+   sn_wndj     =   'ecmwf'   ,        6          , 'v10'     ,    .true.    , .false. , 'daily'  ,'bicubic.nc' , ''       , ''
+   sn_clc      =   'ecmwf'   ,        6          , 'clc'     ,    .true.    , .false. , 'daily'  ,'bilinear.nc', ''       , ''
+   sn_msl      =   'ecmwf'   ,        6          , 'msl'     ,    .true.    , .false. , 'daily'  ,'bicubic.nc' , ''       , ''
+   sn_tair     =   'ecmwf'   ,        6          , 't2'      ,    .true.    , .false. , 'daily'  ,'bicubic.nc' , ''       , ''
+   sn_rhm      =   'ecmwf'   ,        6          , 'rh'      ,    .true.    , .false. , 'daily'  ,'bilinear.nc', ''       , ''
+   sn_prec     =   'ecmwf'   ,        6          , 'precip'  ,    .true.    , .true.  , 'daily'  ,'bicubic.nc' , ''       , ''
+
+   cn_dir      = './ECMWF/'      !  root directory for the location of the bulk files
+/

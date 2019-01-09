@@ -1,0 +1,30 @@
+!-----------------------------------------------------------------------
+&namsbc_isf    !  Top boundary layer (ISF)
+!-----------------------------------------------------------------------
+!              ! file name ! frequency (hours) ! variable ! time interpol. !  clim   ! 'yearly'/ ! weights  ! rotation !
+!              !           !  (if <0  months)  !   name   !    (logical)   !  (T/F)  ! 'monthly' ! filename ! pairing  !
+! nn_isf == 4
+   sn_qisf      = 'rnfisf' ,         -12      ,'sohflisf',    .false.      , .true.  , 'yearly'  ,  ''      ,   ''
+   sn_fwfisf    = 'rnfisf' ,         -12      ,'sowflisf',    .false.      , .true.  , 'yearly'  ,  ''      ,   ''
+! nn_isf == 3
+   sn_rnfisf    = 'runoffs' ,         -12      ,'sofwfisf',    .false.      , .true.  , 'yearly'  ,  ''      ,   ''
+! nn_isf == 2 and 3
+   sn_depmax_isf = 'runoffs' ,       -12        ,'sozisfmax' ,   .false.  , .true.  , 'yearly'  ,  ''      ,   ''
+   sn_depmin_isf = 'runoffs' ,       -12        ,'sozisfmin' ,   .false.  , .true.  , 'yearly'  ,  ''      ,   ''
+! nn_isf == 2
+   sn_Leff_isf = 'rnfisf' ,       0          ,'Leff'         ,   .false.  , .true.  , 'yearly'  ,  ''      ,   ''
+! for all case
+   ln_divisf   = .true.  ! apply isf melting as a mass flux or in the salinity trend. (maybe I should remove this option as for runoff?)
+! only for nn_isf = 1 or 2
+   rn_gammat0  = 1.0e-4   ! gammat coefficient used in blk formula
+   rn_gammas0  = 1.0e-4   ! gammas coefficient used in blk formula
+! only for nn_isf = 1
+   nn_isfblk   =  1       ! 1 ISOMIP ; 2 conservative (3 equation formulation, Jenkins et al. 1991 ??)
+   rn_hisf_tbl =  30.      ! thickness of the top boundary layer           (Losh et al. 2008)
+                          ! 0 => thickness of the tbl = thickness of the first wet cell
+   ln_conserve = .true.   ! conservative case (take into account meltwater advection)
+   nn_gammablk = 1        ! 0 = cst Gammat (= gammat/s)
+                          ! 1 = velocity dependend Gamma (u* * gammat/s)  (Jenkins et al. 2010)
+                          !     if you want to keep the cd as in global config, adjust rn_gammat0 to compensate
+                          ! 2 = velocity and stability dependent Gamma    Holland et al. 1999
+/

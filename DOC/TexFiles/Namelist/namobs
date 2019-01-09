@@ -1,0 +1,57 @@
+!-----------------------------------------------------------------------
+&namobs       !  observation usage switch                               ('key_diaobs')
+!-----------------------------------------------------------------------
+   ln_t3d     = .false.    ! Logical switch for T profile observations
+   ln_s3d     = .false.    ! Logical switch for S profile observations
+   ln_ena     = .false.    ! Logical switch for ENACT insitu data set
+   ln_cor     = .false.    ! Logical switch for Coriolis insitu data set
+   ln_profb   = .false.    ! Logical switch for feedback insitu data set
+   ln_sla     = .false.    ! Logical switch for SLA observations
+   ln_sladt   = .false.    ! Logical switch for AVISO SLA data
+   ln_slafb   = .false.    ! Logical switch for feedback SLA data
+   ln_ssh     = .false.    ! Logical switch for SSH observations
+   ln_sst     = .false.    ! Logical switch for SST observations
+   ln_reysst  = .false.    ! Logical switch for Reynolds observations
+   ln_ghrsst  = .false.    ! Logical switch for GHRSST observations
+   ln_sstfb   = .false.    ! Logical switch for feedback SST data
+   ln_sss     = .false.    ! Logical switch for SSS observations
+   ln_seaice  = .false.    ! Logical switch for Sea Ice observations
+   ln_vel3d   = .false.    ! Logical switch for velocity observations
+   ln_velavcur= .false     ! Logical switch for velocity daily av. cur.
+   ln_velhrcur= .false     ! Logical switch for velocity high freq. cur.
+   ln_velavadcp = .false.  ! Logical switch for velocity daily av. ADCP
+   ln_velhradcp = .false.  ! Logical switch for velocity high freq. ADCP
+   ln_velfb   = .false.    ! Logical switch for feedback velocity data
+   ln_grid_global = .false. ! Global distribtion of observations
+   ln_grid_search_lookup = .false. !  Logical switch for obs grid search w/lookup table
+   grid_search_file = 'grid_search'  !  Grid search lookup file header
+! All of the *files* variables below are arrays. Use namelist_cfg to add more files
+   enactfiles = 'enact.nc' !  ENACT input observation file names (specify full array in namelist_cfg)
+   coriofiles = 'corio.nc' !  Coriolis input observation file name
+   profbfiles = 'profiles_01.nc' ! Profile feedback input observation file name
+   ln_profb_enatim = .false !        Enact feedback input time setting switch
+   slafilesact = 'sla_act.nc' !  Active SLA input observation file names
+   slafilespas = 'sla_pass.nc' ! Passive SLA input observation file names
+   slafbfiles = 'sla_01.nc' ! slafbfiles: Feedback SLA input observation file names
+   sstfiles = 'ghrsst.nc'   ! GHRSST input observation file names
+   sstfbfiles = 'sst_01.nc' ! Feedback SST input observation file names
+   seaicefiles = 'seaice_01.nc' ! Sea Ice input observation file names
+   velavcurfiles = 'velavcurfile.nc'  ! Vel. cur. daily av. input file name
+   velhrcurfiles = 'velhrcurfile.nc'  ! Vel. cur. high freq. input file name
+   velavadcpfiles = 'velavadcpfile.nc' ! Vel. ADCP daily av. input file name
+   velhradcpfiles = 'velhradcpfile.nc' ! Vel. ADCP high freq. input file name
+   velfbfiles = 'velfbfile.nc' ! Vel. feedback input observation file name
+   dobsini = 20000101.000000  !  Initial date in window YYYYMMDD.HHMMSS
+   dobsend = 20010101.000000  !  Final date in window YYYYMMDD.HHMMSS
+   n1dint = 0  !               Type of vertical interpolation method
+   n2dint = 0  !               Type of horizontal interpolation method
+   ln_nea = .false.   !        Rejection of observations near land switch
+   nmsshc     = 0     !        MSSH correction scheme
+   mdtcorr = 1.61     !        MDT  correction
+   mdtcutoff = 65.0   !        MDT cutoff for computed correction
+   ln_altbias = .false.    ! Logical switch for alt bias
+   ln_ignmis  = .true.     ! Logical switch for ignoring missing files
+   endailyavtypes = 820    ! ENACT daily average types - array (use namelist_cfg to set more values)
+   ln_grid_global = .true.
+   ln_grid_search_lookup = .false.
+/

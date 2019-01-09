@@ -1,0 +1,20 @@
+!-----------------------------------------------------------------------
+&namdyn_ldf    !   lateral diffusion on momentum
+!-----------------------------------------------------------------------
+   !                       !  Type of the operator :
+   ln_dynldf_lap    =  .true.   !  laplacian operator
+   ln_dynldf_bilap  =  .false.  !  bilaplacian operator
+   !                       !  Direction of action  :
+   ln_dynldf_level  =  .false.  !  iso-level
+   ln_dynldf_hor    =  .true.   !  horizontal (geopotential)            (require "key_ldfslp" in s-coord.)
+   ln_dynldf_iso    =  .false.  !  iso-neutral                          (require "key_ldfslp")
+   !                       !  Coefficient
+   rn_ahm_0_lap     = 40000.    !  horizontal laplacian eddy viscosity   [m2/s]
+   rn_ahmb_0        =     0.    !  background eddy viscosity for ldf_iso [m2/s]
+   rn_ahm_0_blp     =     0.    !  horizontal bilaplacian eddy viscosity [m4/s]
+   rn_cmsmag_1      =     3.    !  constant in laplacian Smagorinsky viscosity
+   rn_cmsmag_2      =     3     !  constant in bilaplacian Smagorinsky viscosity
+   rn_cmsh          =     1.    !  1 or 0 , if 0 -use only shear for Smagorinsky viscosity
+   rn_ahm_m_blp     =    -1.e12 !  upper limit for bilap  abs(ahm) < min( dx^4/128rdt, rn_ahm_m_blp)
+   rn_ahm_m_lap     = 40000.    !  upper limit for lap  ahm < min(dx^2/16rdt, rn_ahm_m_lap)
+/

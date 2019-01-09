@@ -1,0 +1,10 @@
+!-----------------------------------------------------------------------
+&namsbc_ana    !   analytical surface boundary condition
+!-----------------------------------------------------------------------
+   nn_tau000   =   0       !  gently increase the stress over the first ntau_rst time-steps
+   rn_utau0    =   0.5     !  uniform value for the i-stress
+   rn_vtau0    =   0.e0    !  uniform value for the j-stress
+   rn_qns0     =   0.e0    !  uniform value for the total heat flux
+   rn_qsr0     =   0.e0    !  uniform value for the solar radiation
+   rn_emp0     =   0.e0    !  uniform value for the freswater budget (E-P)
+/

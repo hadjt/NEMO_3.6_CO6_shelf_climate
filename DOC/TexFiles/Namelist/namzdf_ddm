@@ -1,0 +1,6 @@
+!-----------------------------------------------------------------------
+&namzdf_ddm    !   double diffusive mixing parameterization             ("key_zdfddm")
+!-----------------------------------------------------------------------
+   rn_avts     = 1.e-4     !  maximum avs (vertical mixing on salinity)
+   rn_hsbfr    = 1.6       !  heat/salt buoyancy flux ratio
+/

@@ -1,0 +1,50 @@
+This is a first release of SIREN.
+
+To create SIREN documentation, go to ./src and run doxygen 
+(http://www.stack.nl/~dimitri/doxygen/index.html version 1.8.3.1 or upper)
+then
+   open ../doc/index.html 
+or 
+   run ../doc/latex/gmake and open refman.pdf 
+
+
+templates of namelists could be find in templates directory.
+read documentation for more information.
+
+ 1- program to create coordinate file :
+
+   ./create_coord create_coord.nam
+
+
+ Variables are extracted from the input coordinates coarse grid and
+ interpolated to create fine coordinates files.
+
+ 2- program to create bathymetry file:
+
+ ./create_bathy create_bathy.nam
+
+ Bathymetry could be extracted from fine grid Bathymetry file, or
+ interpolated from coarse grid Bathymetry file.
+
+ 3- program to merge bathymetry file at boundaries :
+
+ ./merge_bathy merge_bathy.nam
+
+ Coarse grid Bathymetry is interpolated on fine grid.
+ Then fine Bathymetry and refined coarse bathymetry are merged at
+ boundaries.
+
+ 4- program to create restart file :
+
+ ./create_restart create_restart.nam
+
+ Variables are read from restart file, or standard output.
+ Then theses variables are interpolated on fine grid.
+ Finally table are split over new decomposition.
+
+ 5- program to create boundary files (OBC) :
+
+ ./create_boundary create_boundary.nam
+
+ Variables are read from standard output.
+ Then theses variables are interpolated on fine grid boundaries.

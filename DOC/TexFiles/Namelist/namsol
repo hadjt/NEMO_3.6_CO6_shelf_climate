@@ -1,0 +1,13 @@
+!-----------------------------------------------------------------------
+&namsol        !   elliptic solver / island / free surface
+!-----------------------------------------------------------------------
+   nn_solv     =      1    !  elliptic solver: =1 preconditioned conjugate gradient (pcg)
+                           !                   =2 successive-over-relaxation (sor)
+   nn_sol_arp  =      0    !  absolute/relative (0/1) precision convergence test
+   rn_eps      =  1.e-6    !  absolute precision of the solver
+   nn_nmin     =    300    !  minimum of iterations for the SOR solver
+   nn_nmax     =    800    !  maximum of iterations for the SOR solver
+   nn_nmod     =     10    !  frequency of test for the SOR solver
+   rn_resmax   =  1.e-10   !  absolute precision for the SOR solver
+   rn_sor      =  1.92     !  optimal coefficient for SOR solver (to be adjusted with the domain)
+/

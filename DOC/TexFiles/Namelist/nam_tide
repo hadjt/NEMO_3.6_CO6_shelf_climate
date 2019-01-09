@@ -1,0 +1,8 @@
+!-----------------------------------------------------------------------
+&nam_tide      !   tide parameters (#ifdef key_tide)
+!-----------------------------------------------------------------------
+   ln_tide_pot   = .true.   !  use tidal potential forcing
+   ln_tide_ramp  = .false.  !
+   rdttideramp   =    0.    !
+   clname(1)     = 'DUMMY'  !  name of constituent - all tidal components must be set in namelist_cfg
+/

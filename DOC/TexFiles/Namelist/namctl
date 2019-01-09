@@ -1,0 +1,15 @@
+!-----------------------------------------------------------------------
+&namctl        !   Control prints & Benchmark
+!-----------------------------------------------------------------------
+   ln_ctl      = .false.   !  trends control print (expensive!)
+   nn_print    =    0      !  level of print (0 no extra print)
+   nn_ictls    =    0      !  start i indice of control sum (use to compare mono versus
+   nn_ictle    =    0      !  end   i indice of control sum        multi processor runs
+   nn_jctls    =    0      !  start j indice of control               over a subdomain)
+   nn_jctle    =    0      !  end   j indice of control
+   nn_isplt    =    1      !  number of processors in i-direction
+   nn_jsplt    =    1      !  number of processors in j-direction
+   nn_bench    =    0      !  Bench mode (1/0): CAUTION use zero except for bench
+                           !     (no physical validity of the results)
+   nn_timing   =    0      !  timing by routine activated (=1) creates timing.output file, or not (=0)
+/

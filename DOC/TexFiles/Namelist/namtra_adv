@@ -1,0 +1,12 @@
+!-----------------------------------------------------------------------
+&namtra_adv    !   advection scheme for tracer
+!-----------------------------------------------------------------------
+   ln_traadv_cen2   =  .false.   !  2nd order centered scheme
+   ln_traadv_tvd    =  .true.    !  TVD scheme
+   ln_traadv_muscl  =  .false.   !  MUSCL scheme
+   ln_traadv_muscl2 =  .false.   !  MUSCL2 scheme + cen2 at boundaries
+   ln_traadv_ubs    =  .false.   !  UBS scheme
+   ln_traadv_qck    =  .false.   !  QUICKEST scheme
+   ln_traadv_msc_ups=  .false.   !  use upstream scheme within muscl
+   ln_traadv_tvd_zts=  .false.  !  TVD scheme with sub-timestepping of vertical tracer advection
+/

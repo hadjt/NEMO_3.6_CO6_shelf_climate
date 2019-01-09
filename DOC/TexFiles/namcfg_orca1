@@ -1,0 +1,12 @@
+!-----------------------------------------------------------------------
+&namcfg        !   parameters of the configuration
+!-----------------------------------------------------------------------
+   cp_cfg      =  "orca"               !  name of the configuration
+   jp_cfg      =       1               !  resolution of the configuration
+   jpidta      =     362               !  1st lateral dimension ( >= jpi )
+   jpjdta      =     292               !  2nd    "         "    ( >= jpj )
+   jpkdta      =      75               !  number of levels      ( >= jpk )
+   jpiglo      =     362               !  1st dimension of global domain --> i =jpidta
+   jpjglo      =     292               !  2nd    -                  -    --> j  =jpjdta
+   jperio      =       6               !  lateral cond. type (between 0 and 6)
+   ln_use_jattr = .true.               !  use (T) the file attribute: open_ocean_jstart if present

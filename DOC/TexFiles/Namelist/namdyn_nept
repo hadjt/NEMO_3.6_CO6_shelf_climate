@@ -1,0 +1,15 @@
+!-----------------------------------------------------------------------
+&namdyn_nept  !   Neptune effect (simplified: lateral and vertical diffusions removed)
+!-----------------------------------------------------------------------
+   ! Suggested lengthscale values are those of Eby & Holloway (1994) for a coarse model
+   ln_neptsimp       = .false.  ! yes/no use simplified neptune
+
+   ln_smooth_neptvel = .false.  ! yes/no smooth zunep, zvnep
+   rn_tslse          =  1.2e4   ! value of lengthscale L at the equator
+   rn_tslsp          =  3.0e3   ! value of lengthscale L at the pole
+   ! Specify whether to ramp down the Neptune velocity in shallow
+   ! water, and if so the depth range controlling such ramping down
+   ln_neptramp       = .true.   ! ramp down Neptune velocity in shallow water
+   rn_htrmin         =  100.0   ! min. depth of transition range
+   rn_htrmax         =  200.0   ! max. depth of transition range
+/

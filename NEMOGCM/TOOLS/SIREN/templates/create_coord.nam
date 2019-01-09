@@ -1,0 +1,33 @@
+&namlog
+   cn_logfile="coord_out.log"
+   cn_verbosity=
+   in_maxerror=
+/
+
+&namcfg
+   cn_varcfg="./cfg/variable.cfg"
+/
+
+&namcrs
+   cn_coord0=
+   in_perio0=
+/
+
+&namvar
+   cn_varinfo=
+/
+
+&namnst
+   in_imin0=
+   in_imax0=
+   in_jmin0=
+   in_jmax0=
+
+   in_rhoi=
+   in_rhoj=
+/
+
+&namout
+   cn_fileout="coord_out.nc"
+/
+

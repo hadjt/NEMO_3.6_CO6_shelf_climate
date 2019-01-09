@@ -1,0 +1,9 @@
+!-----------------------------------------------------------------------
+&namdyn_vor    !   option of physics/algorithm (not control by CPP keys)
+!-----------------------------------------------------------------------
+   ln_dynvor_ene = .false. !  enstrophy conserving scheme
+   ln_dynvor_ens = .false. !  energy conserving scheme
+   ln_dynvor_mix = .false. !  mixed scheme
+   ln_dynvor_een = .true.  !  energy & enstrophy scheme
+   ln_dynvor_een_old = .false.  !  energy & enstrophy scheme - original formulation
+/

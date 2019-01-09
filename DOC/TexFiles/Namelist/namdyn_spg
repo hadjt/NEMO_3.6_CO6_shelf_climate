@@ -1,0 +1,6 @@
+!-----------------------------------------------------------------------
+!namdyn_spg    !   surface pressure gradient   (CPP key only)
+!-----------------------------------------------------------------------
+!                          !  explicit free surface                     ("key_dynspg_exp")
+!                          !  filtered free surface                     ("key_dynspg_flt")
+!                          !  split-explicit free surface               ("key_dynspg_ts")

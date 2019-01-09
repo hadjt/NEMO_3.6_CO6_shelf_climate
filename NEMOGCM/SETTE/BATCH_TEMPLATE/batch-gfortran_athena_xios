@@ -1,0 +1,127 @@
+#!/bin/bash 
+#!
+#BSUB -q poe_short
+#BSUB -n TOTAL_NPROCS
+#BSUB -a poe
+#BSUB -J MPI_config
+#BSUB -o poe.stdout.%J
+#BSUB -e poe.stderr.%J
+
+ 
+
+###############################################################
+# Test specific settings. Do not hand edit these lines; the fcm_job.sh script will set these
+# (via sed operating on this template job file). 
+#
+  OCEANCORES=NPROCS
+  XIOS_NUMPROCS=NXIOPROCS
+  export SETTE_DIR=DEF_SETTE_DIR
+
+###############################################################
+#
+# set up mpp computing environment
+#
+# Local settings for machine IBM Power6 (VARGAS at IDRIS France)
+#
+
+# export MPIRUN="mpirun -n $OCEANCORES"
+
+export MPIRUN="mpirun.lsf"
+export LANG=en_US
+export NLSPATH=/opt/ibmhpc/pecurrent/base/msg/%L/%N:$NLSPATH
+export MP_LABELIO=yes
+export MP_STDOUTMODE=unordered
+export MP_EUILIB=us
+export MP_INFOLEVEL=0
+export MP_EUIDEVELOP=min
+export MP_INSTANCES=1
+export MP_SHARED_MEMORY=yes
+export MP_EAGER_LIMIT_LOCAL=2000000000
+export MP_EUIDEVICE=sn_single
+export MP_BULK_MIN_MSG_SIZE=16384
+export MP_POLLING_INTERVAL=1000000
+export MP_DEVTYPE=ib
+export MP_EAGER_LIMIT=262144
+export MP_TASK_AFFINITY=core
+export MP_BINDPROC=yes
+export MP_DEBUG_CHECK_PARAM=no
+export MP_MSG_API=mpi
+export MP_USE_BULK_XFER=yes
+export MP_WAIT_MODE=poll
+export LDR_CNTRL=TEXTPSIZE=64K@STACKPSIZE=64K@DATAPSIZE=64K
+export LD_LIBRARY_PATH=/users/home/ans040/local/lib:${LD_LIBRARY_PATH}
+
+XIOS_SERVER_PATHNAME="/users/home/ans040/SOFTWARE/XIOS/trunk/bin/xios_server.exe"
+
+
+#
+# load sette functions (only post_test_tidyup needed)
+#
+  . ${SETTE_DIR}/all_functions.sh
+
+
+# Don't remove neither change the following line 
+# BODY
+
+#
+# These variables are needed by post_test_tidyup function in all_functions.sh
+#
+  export EXE_DIR=DEF_EXE_DIR
+  export INPUT_DIR=DEF_INPUT_DIR
+  export CONFIG_DIR=DEF_CONFIG_DIR
+  export NEMO_VALIDATION_DIR=DEF_NEMO_VALIDATION
+  export NEW_CONF=DEF_NEW_CONF
+  export CMP_NAM=DEF_CMP_NAM
+  export TEST_NAME=DEF_TEST_NAME
+#
+# end of set up
+
+
+###############################################################
+#
+# change to the working directory 
+#
+cd ${EXE_DIR}
+
+#
+  echo Running on host `hostname`
+  echo Time is `date`
+  echo Directory is `pwd`
+# 
+#  Run the parallel MPI executable 
+#
+#  echo "Running time ${MPIRUN} " $OCEANCORES " ./opa"
+#
+
+  if [ MPI_FLAG == "yes" ]; then
+     if [ $XIOS_NUMPROCS -eq 0 ]; then
+       time ${MPIRUN} ./opa
+     else
+
+       export MP_PGMMODEL=mpmd
+       export MP_CMDFILE=xioscmdfile
+       rm xioscmdfile &> /dev/null
+       touch xioscmdfile
+       k=0
+       while (( k < $OCEANCORES )) ; do
+          echo ./opa >> xioscmdfile
+          k=`expr $k + 1`
+       done
+       k=0
+       while (( k < $XIOS_NUMPROCS )) ; do
+          echo $XIOS_SERVER_PATHNAME >> xioscmdfile
+          k=`expr $k + 1`
+       done
+
+       time ${MPIRUN}
+     fi
+  else
+     time ./opa
+  fi
+#
+  post_test_tidyup
+
+# END_BODY
+# Don't remove neither change the previous line 
+
+  exit

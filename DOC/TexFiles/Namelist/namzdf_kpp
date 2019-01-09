@@ -1,0 +1,13 @@
+!------------------------------------------------------------------------
+&namzdf_kpp    !   K-Profile Parameterization dependent vertical mixing  ("key_zdfkpp", and optionally:
+!------------------------------------------------------------------------ "key_kppcustom" or "key_kpplktb")
+   ln_kpprimix = .true.    !  shear instability mixing
+   rn_difmiw   =  1.0e-04  !  constant internal wave viscosity [m2/s]
+   rn_difsiw   =  0.1e-04  !  constant internal wave diffusivity [m2/s]
+   rn_riinfty  =  0.8      !  local Richardson Number limit for shear instability
+   rn_difri    =  0.0050   !  maximum shear mixing at Rig = 0    [m2/s]
+   rn_bvsqcon  = -0.01e-07 !  Brunt-Vaisala squared for maximum convection [1/s2]
+   rn_difcon   =  1.       !  maximum mixing in interior convection [m2/s]
+   nn_avb      =  0        !  horizontal averaged (=1) or not (=0) on avt and amv
+   nn_ave      =  1        !  constant (=0) or profile (=1) background on avt
+/

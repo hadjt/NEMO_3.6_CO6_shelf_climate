@@ -1,0 +1,15 @@
+!-----------------------------------------------------------------------
+&namsbc_clio   !   namsbc_clio  CLIO bulk formulae
+!-----------------------------------------------------------------------
+!              !  file name  ! frequency (hours) ! variable  ! time interp. !  clim  ! 'yearly'/ ! weights  ! rotation ! land/sea mask !
+!              !             !  (if <0  months)  !   name    !   (logical)  !  (T/F) ! 'monthly' ! filename ! pairing  ! filename      !
+   sn_utau     = 'taux_1m'   ,       -1          , 'sozotaux',   .true.     , .true. , 'yearly'  , ''       , ''       , ''
+   sn_vtau     = 'tauy_1m'   ,       -1          , 'sometauy',   .true.     , .true. , 'yearly'  , ''       , ''       , ''
+   sn_wndm     = 'flx'       ,       -1          , 'socliowi',   .true.     , .true. , 'yearly'  , ''       , ''       , ''
+   sn_tair     = 'flx'       ,       -1          , 'socliot2',   .true.     , .true. , 'yearly'  , ''       , ''       , ''
+   sn_humi     = 'flx'       ,       -1          , 'socliohu',   .true.     , .true. , 'yearly'  , ''       , ''       , ''
+   sn_ccov     = 'flx'       ,       -1          , 'socliocl',   .false.    , .true. , 'yearly'  , ''       , ''       , ''
+   sn_prec     = 'flx'       ,       -1          , 'socliopl',   .false.    , .true. , 'yearly'  , ''       , ''       , ''
+
+   cn_dir      = './'      !  root directory for the location of the bulk files are
+/

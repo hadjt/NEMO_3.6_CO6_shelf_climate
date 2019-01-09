@@ -1,0 +1,9 @@
+!-----------------------------------------------------------------------
+&namsbc_alb    !   albedo parameters
+!-----------------------------------------------------------------------
+   rn_cloud    =    0.06   !  cloud correction to snow and ice albedo
+   rn_albice   =    0.53   !  albedo of melting ice in the arctic and antarctic
+   rn_alphd    =    0.80   !  coefficients for linear interpolation used to
+   rn_alphc    =    0.65   !  compute albedo between two extremes values
+   rn_alphdi   =    0.72   !  (Pyane, 1972)
+/
