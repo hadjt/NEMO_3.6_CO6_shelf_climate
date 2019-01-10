@@ -1,4 +1,5 @@
 MODULE diadct
+
   !!=====================================================================
   !!                       ***  MODULE  diadct  ***
   !! Ocean diagnostics: Compute the transport trough a sec.
@@ -68,17 +69,27 @@ MODULE diadct
   LOGICAL, PUBLIC, PARAMETER ::   lk_diadct = .TRUE.   !: model-data diagnostics flag
   LOGICAL, PUBLIC ::   ln_dct_calc_noos_25h !: Calcuate noos 25 h means
   LOGICAL, PUBLIC ::   ln_dct_calc_noos_hr !: Calcuate noos hourly means
+  ! JT
+  LOGICAL, PUBLIC ::   ln_dct_iom_cont !: Use IOM Output?
+  LOGICAL, PUBLIC ::   ln_dct_ascii    !: Output ascii or binary
+  LOGICAL, PUBLIC ::   ln_dct_h        !: Output hourly instantaneous or mean values
+  ! JT
 
   !! * Module variables
   INTEGER :: nn_dct        ! Frequency of computation
   INTEGER :: nn_dctwri     ! Frequency of output
   INTEGER :: nn_secdebug   ! Number of the section to debug
-  INTEGER :: nn_dct_h    = 1     ! Frequency of computation for NOOS hourly files
-  INTEGER :: nn_dctwri_h = 1     ! Frequency of output for NOOS hourly files
+!  INTEGER :: nn_dct_h    = 1     ! Frequency of computation for NOOS hourly files
+  INTEGER :: nn_dct_h      ! Frequency of computation for NOOS hourly files
+  INTEGER :: nn_dctwri_h   ! Frequency of output for NOOS hourly files
    
   INTEGER, PARAMETER :: nb_class_max  = 11   ! maximum number of classes, i.e. depth levels or density classes
-  INTEGER, PARAMETER :: nb_sec_max    = 30   ! maximum number of sections
-  INTEGER, PARAMETER :: nb_point_max  = 375  ! maximum number of points in a single section
+  ! JT INTEGER, PARAMETER :: nb_sec_max    = 30   ! maximum number of sections
+  INTEGER, PARAMETER :: nb_sec_max    = 80   !50 maximum number of sections
+  INTEGER, PARAMETER :: nb_point_max  = 150  !375 maximum number of points in a single section
+
+
+
   INTEGER, PARAMETER :: nb_type       = 14   ! types of calculations, i.e. pos transport, neg transport, heat transport, salt transport
   INTEGER, PARAMETER :: nb_3d_vars    = 5
   INTEGER, PARAMETER :: nb_2d_vars    = 2
@@ -132,12 +143,18 @@ CONTAINS
      INTEGER :: ierr(2)
      !!----------------------------------------------------------------------
      !
+     
+     !JT not sure why this is in nemogcm.F90(?) rather than diadct_init...
+     !JT it would be good if the nb_sec_max and nb_point_max were controlled by name list variable.
+     
+     
      ALLOCATE(transports_3d(nb_3d_vars,nb_sec_max,nb_point_max,jpk),   STAT=ierr(1) )
      ALLOCATE(transports_2d(nb_2d_vars,nb_sec_max,nb_point_max)    ,   STAT=ierr(2) )
      ALLOCATE(transports_3d_h(nb_3d_vars,nb_sec_max,nb_point_max,jpk), STAT=ierr(3) )
      ALLOCATE(transports_2d_h(nb_2d_vars,nb_sec_max,nb_point_max)    , STAT=ierr(4) )
-     ALLOCATE(z_hr_output(nb_sec_max,24,nb_class_max)                , STAT=ierr(5) )
-        !
+     !JT ALLOCATE(z_hr_output(nb_sec_max,24,nb_class_max)                , STAT=ierr(5) )
+     ALLOCATE(z_hr_output(nb_sec_max,3,nb_class_max)                , STAT=ierr(5) )
+    
      diadct_alloc = MAXVAL( ierr )
      IF( diadct_alloc /= 0 )   CALL ctl_warn('diadct_alloc: failed to allocate arrays')
      !
@@ -152,8 +169,10 @@ CONTAINS
      !!              Open output files
      !!
      !!---------------------------------------------------------------------
-     NAMELIST/namdct/nn_dct,nn_dctwri,nn_secdebug,ln_dct_calc_noos_25h,ln_dct_calc_noos_hr
-     INTEGER  ::   ios                 ! Local integer output status for namelist read
+     !JT NAMELIST/namdct/nn_dct,ln_dct_h,nn_dctwri,ln_dct_ascii,nn_secdebug,ln_dct_calc_noos_25h,ln_dct_calc_noos_hr,ln_dct_iom_cont,nb_sec_max,nb_point_max
+     NAMELIST/namdct/nn_dct,ln_dct_h,nn_dctwri,ln_dct_ascii,nn_secdebug,ln_dct_calc_noos_25h,ln_dct_calc_noos_hr,ln_dct_iom_cont
+     INTEGER           ::   ios,jsec        ! Local integer output status for namelist read
+     CHARACTER(len=3)  ::   jsec_str        ! name of the jsec
 
      IF( nn_timing == 1 )   CALL timing_start('dia_dct_init')
 
@@ -166,19 +185,38 @@ CONTAINS
 902  IF( ios /= 0 ) CALL ctl_nam ( ios , 'namdct in configuration namelist', lwp )
      IF(lwm) WRITE ( numond, namdct )
      
-     
-     
-     
-     
-     
-     
-     
 
      IF( ln_NOOS ) THEN
-        nn_dct=3600./rdt         ! hard coded for NOOS transects, to give 25 hour means 
+
+        !Do calculation for daily, 25hourly mean every hour
+        nn_dct=3600./rdt         ! hard coded for NOOS transects, to give 25 hour means from hourly instantaneous values
+
+        !write out daily, 25hourly mean every day
         nn_dctwri=86400./rdt
+
+
+        ! JT
+        !
+        !
+        !nn_dct_h=1       ! hard coded for NOOS transects, to give hourly data    
+        ! If you want hourly instantaneous values, you only do the calculation every 12 timesteps (if rdt = 300)
+        ! and output it every 12 time steps. For this, you set the ln_dct_h to be True, and it calcuates it automatically
+        ! if you want hourly mean values, set ln_dct_h to be False, and it will do the calculate every time step.
+        !
+        !SELECT CASE( ln_dct_h )
+        !   CASE(.TRUE.)  
+        !      nn_dct_h=3600./rdt
+        !   CASE(.FALSE.)
+        !      nn_dct_h=1
+        !END SELECT
         
-        nn_dct_h=1       ! hard coded for NOOS transects, to give hourly data
+        IF ( ln_dct_h ) THEN
+            nn_dct_h=3600./rdt
+        ELSE
+            nn_dct_h=1.
+        ENDIF    
+        
+        !JT write out hourly calculation every hour
         nn_dctwri_h=3600./rdt
      ENDIF
 
@@ -189,9 +227,14 @@ CONTAINS
         IF( ln_NOOS ) THEN
            WRITE(numout,*) "       Calculate NOOS hourly output: ln_dct_calc_noos_hr = ",ln_dct_calc_noos_hr
            WRITE(numout,*) "       Calculate NOOS 25 hour mean output: ln_dct_calc_noos_hr = ",ln_dct_calc_noos_25h
+           WRITE(numout,*) "       Use IOM Output: ln_dct_iom_cont = ",ln_dct_iom_cont
+           WRITE(numout,*) "       Output in ASCII (True) or Binary (False): ln_dct_ascii = ",ln_dct_ascii
+           WRITE(numout,*) "       Frequency of hourly computation - instantaneous (TRUE) or hourly mean (FALSE): ln_dct_h  = ",ln_dct_h
+
            WRITE(numout,*) "       Frequency of computation hard coded to be every hour: nn_dct    = ",nn_dct
            WRITE(numout,*) "       Frequency of write hard coded to average 25 instantaneous hour values: nn_dctwri = ",nn_dctwri
-           WRITE(numout,*) "       Frequency of hourly computation hard coded to be every timestep: nn_dct_h  = ",nn_dct_h
+           WRITE(numout,*) "       Frequency of hourly computation (timestep) : nn_dct_h  = ",nn_dct_h
+           WRITE(numout,*) "       Frequency of hourly computation Not hard coded to be every timestep, or : nn_dct_h  = ",nn_dct_h
            WRITE(numout,*) "       Frequency of hourly write hard coded to every hour: nn_dctwri_h = ",nn_dctwri_h
         ELSE
            WRITE(numout,*) "       Frequency of computation: nn_dct    = ",nn_dct
@@ -214,13 +257,19 @@ CONTAINS
      IF ( ln_NOOS ) THEN
         IF ( ln_dct_calc_noos_25h .or. ln_dct_calc_noos_hr ) CALL readsec
      ENDIF
-     
 
      !open output file
      IF( lwp ) THEN
         IF( ln_NOOS ) THEN
-           if ( ln_dct_calc_noos_25h ) CALL ctl_opn( numdct_NOOS  ,'NOOS_transport'  , 'NEW', 'FORMATTED', 'SEQUENTIAL', -1, numout,  .FALSE. )
-           if ( ln_dct_calc_noos_hr ) CALL ctl_opn( numdct_NOOS_h,'NOOS_transport_h', 'NEW', 'FORMATTED', 'SEQUENTIAL', -1, numout,  .FALSE. )
+           WRITE(numout,*) "diadct_init: Open output files. ASCII? ",ln_dct_ascii
+           WRITE(numout,*) "~~~~~~~~~~~~~~~~~~~~~"
+           IF  ( ln_dct_ascii ) THEN
+               if ( ln_dct_calc_noos_25h ) CALL ctl_opn( numdct_NOOS  ,'NOOS_transport'  , 'REPLACE', 'FORMATTED', 'SEQUENTIAL', -1, numout,  .TRUE. )
+               if ( ln_dct_calc_noos_hr )  CALL ctl_opn( numdct_NOOS_h,'NOOS_transport_h', 'REPLACE', 'FORMATTED', 'SEQUENTIAL', -1, numout,  .TRUE. )
+           ELSE
+               if ( ln_dct_calc_noos_25h ) CALL ctl_opn( numdct_NOOS  ,'NOOS_transport_bin'  , 'REPLACE', 'UNFORMATTED', 'SEQUENTIAL', -1, numout,  .TRUE. )
+               if ( ln_dct_calc_noos_hr )  CALL ctl_opn( numdct_NOOS_h,'NOOS_transport_bin_h', 'REPLACE', 'UNFORMATTED', 'SEQUENTIAL', -1, numout,  .TRUE. )
+           ENDIF
         ELSE
            CALL ctl_opn( numdct_vol , 'volume_transport', 'NEW', 'FORMATTED', 'SEQUENTIAL', -1, numout,  .FALSE. )
            CALL ctl_opn( numdct_temp, 'heat_transport'  , 'NEW', 'FORMATTED', 'SEQUENTIAL', -1, numout,  .FALSE. )
@@ -229,13 +278,69 @@ CONTAINS
      ENDIF
 
      ! Initialise arrays to zero
-     transports_3d(:,:,:,:)  =0._wp
-     transports_2d(:,:,:)    =0._wp
-     transports_3d_h(:,:,:,:)=0._wp
-     transports_2d_h(:,:,:)  =0._wp
-     z_hr_output(:,:,:)      =0._wp
+     transports_3d(:,:,:,:)   =0._wp
+     transports_2d(:,:,:)     =0._wp
+     transports_3d_h(:,:,:,:) =0._wp
+     transports_2d_h(:,:,:)   =0._wp
+     z_hr_output(:,:,:)       =0._wp
 
      IF( nn_timing == 1 )   CALL timing_stop('dia_dct_init')
+
+     IF (ln_dct_iom_cont) THEN
+        IF( lwp ) THEN
+            WRITE(numout,*) " "
+            WRITE(numout,*) "diadct_init: using xios iom_put for output: field_def.xml and iodef.xml code"
+            WRITE(numout,*) "~~~~~~~~~~~~~~~~~~~~~"
+            WRITE(numout,*) ""
+            WRITE(numout,*) "      field_def.xml"
+            WRITE(numout,*) "      ~~~~~~~~~~~~~"
+            WRITE(numout,*) ""
+            WRITE(numout,*) ""
+      
+            WRITE(numout,*)  '      <field_group id="noos_cross_section" domain_ref="1point" axis_ref="noos" operation="average">'
+
+            DO jsec=1,nb_sec
+               WRITE (jsec_str, "(I3.3)") jsec
+               
+               WRITE(numout,*)  '          <field id="noos_'//jsec_str//'_trans" long_name="' // TRIM(secs(jsec)%name) // ' 25h mean NOOS transport cross-section number: '//jsec_str//' (total, positive, negative)" unit="m^3/s" />'
+               WRITE(numout,*)  '          <field id="noos_'//jsec_str//'_heat" long_name="' // TRIM(secs(jsec)%name) // ' 25h mean NOOS heat cross-section number: '//jsec_str//' (total, positive, negative)" unit="J/s" />'
+               WRITE(numout,*)  '          <field id="noos_'//jsec_str//'_salt" long_name="' // TRIM(secs(jsec)%name) // ' 25h mean NOOS salt cross-section number: '//jsec_str//' (total, positive, negative)" unit="g/s" />'
+               
+            ENDDO
+            
+            WRITE(numout,*)  '      </field_group>'
+            
+            WRITE(numout,*) ""
+            WRITE(numout,*) ""
+            WRITE(numout,*) "      iodef.xml"
+            WRITE(numout,*) "      ~~~~~~~~~"
+            WRITE(numout,*) ""
+            WRITE(numout,*) ""
+            
+            WRITE(numout,*)  '      <file_group id="1d" output_freq="1d" output_level="10" enabled=".TRUE.">'
+            WRITE(numout,*) ""
+            WRITE(numout,*)  '          <file id="noos_cross_section" name="NOOS_transport">'
+            DO jsec=1,nb_sec
+               WRITE (jsec_str, "(I3.3)") jsec
+               
+               WRITE(numout,*)  '              <field field_ref="noos_'//jsec_str//'_trans" />'
+               WRITE(numout,*)  '              <field field_ref="noos_'//jsec_str//'_heat" />'
+               WRITE(numout,*)  '              <field field_ref="noos_'//jsec_str//'_salt" />'
+               
+            ENDDO
+            WRITE(numout,*)  '          </file>'
+            WRITE(numout,*) ""
+            WRITE(numout,*)  '      </file_group>'
+            
+            WRITE(numout,*) ""
+            WRITE(numout,*) ""
+            WRITE(numout,*) "~~~~~~~~~~~~~~~~~~~~~"
+            WRITE(numout,*) ""
+        
+        ENDIF
+     ENDIF
+
+
      !
   END SUBROUTINE dia_dct_init
  
@@ -273,14 +378,10 @@ CONTAINS
      !!---------------------------------------------------------------------    
      
      
-      
-        !i_steps = 1
-        
-
      
      IF( nn_timing == 1 )   CALL timing_start('dia_dct')
 
-     IF( lk_mpp )THEN
+     IF( lk_mpp ) THEN
         itotal = nb_sec_max*nb_type*nb_class_max
         CALL wrk_alloc( itotal                          , zwork ) 
         CALL wrk_alloc( nb_sec_max,nb_type,nb_class_max , zsum  )
@@ -327,11 +428,23 @@ CONTAINS
             
             
 
-              IF( lwp .AND. kt==nit000+nn_dctwri-1 )WRITE(numout,*)"      diadct: average and write at kt = ",kt         
-      
-              !! divide arrays by nn_dctwri/nn_dct to obtain average
-              transports_3d(:,:,:,:)=transports_3d(:,:,:,:)/(nn_dctwri/nn_dct)
-              transports_2d(:,:,:)  =transports_2d(:,:,:)  /(nn_dctwri/nn_dct)
+              IF( lwp .AND. kt==nit000+nn_dctwri-1 ) WRITE(numout,*)"      diadct: average and write at kt = ",kt
+
+
+              !JT   
+              !JT   
+              !JT   !! divide arrays by nn_dctwri/nn_dct to obtain average
+              !JT   transports_3d(:,:,:,:)=transports_3d(:,:,:,:)/(nn_dctwri/nn_dct)
+              !JT   transports_2d(:,:,:)  =transports_2d(:,:,:)  /(nn_dctwri/nn_dct)
+              !JT   
+              !JT   
+
+
+              !JT   
+              !JT Not 24 values, but 25! divide by ((nn_dctwri/nn_dct) +1)
+              !! divide arrays by nn_dctwri/nn_dct  to obtain average
+              transports_3d(:,:,:,:)= transports_3d(:,:,:,:)/((nn_dctwri/nn_dct)+1.)
+              transports_2d(:,:,:)  = transports_2d(:,:,:)  /((nn_dctwri/nn_dct)+1.)
 
               ! Sum over each class
               DO jsec=1,nb_sec
@@ -393,6 +506,10 @@ CONTAINS
               IF( lwp .AND. kt==nit000+nn_dctwri_h-1 )WRITE(numout,*)"      diadct: average and write hourly files at kt = ",kt         
       
               !! divide arrays by nn_dctwri/nn_dct to obtain average
+                !
+                ! JT - I think this is wrong. I think it is trying to sum over 25 hours, but only dividing by 24.
+                ! I think it might work for daily cycles, but not for monthly cycles,
+                !
               transports_3d_h(:,:,:,:)=transports_3d_h(:,:,:,:)/(nn_dctwri_h/nn_dct_h)
               transports_2d_h(:,:,:)  =transports_2d_h(:,:,:)  /(nn_dctwri_h/nn_dct_h)
 
@@ -421,8 +538,10 @@ CONTAINS
                   !nullify transports values after writing
                   transports_3d_h(:,jsec,:,:)=0.0
                   transports_2d_h(:,jsec,:)=0.0
-                  secs(jsec)%transport_h(:,:)=0.  
-                  IF ( ln_NOOS ) CALL transport_h(secs(jsec),lldebug,jsec)  ! reinitialise for next 25 hour instantaneous average (overlapping values)
+                  secs(jsec)%transport_h(:,:)=0.0
+                  
+                  ! for hourly mean or hourly instantaneous, you don't initialise! start with zero!
+                  !IF ( ln_NOOS ) CALL transport_h(secs(jsec),lldebug,jsec)  ! reinitialise for next 25 hour instantaneous average (overlapping values)
 
               ENDDO
 
@@ -674,6 +793,8 @@ CONTAINS
      
      nb_sec = jsec-1   !number of section read in the file
 
+     IF( lwp )  WRITE(numout,*)'diadct: read sections: Finished readsec.'
+
      CALL wrk_dealloc( nb_point_max, directemp )
      !
   END SUBROUTINE readsec
@@ -800,8 +921,22 @@ CONTAINS
      !---------------------------!
      !  COMPUTE TRANSPORT        !
      !---------------------------!
-     IF(sec%nb_point .NE. 0)THEN   
+     IF(sec%nb_point .NE. 0)THEN
 
+        !----------------------------------------------------------------------------------------------------
+        !----------------------------------------------------------------------------------------------------
+        !----------------------------------------------------------------------------------------------------
+        !
+        !
+        ! ! ! ! JT 1/09/2018 - changing convention. Always direction + is toward left hand of section
+        !
+        !    Making sign of the velocities used to calculate the volume transport a function of direction, not slopesection
+        !    (isgnu, isgnv)
+        !    
+        !    They vary for each segment of the section. 
+        !
+        !----------------------------------------------------------------------------------------------------
+        !----------------------------------------------------------------------------------------------------
         !----------------------------------------------------------------------------------------------------
         !Compute sign for velocities:
         !
@@ -823,11 +958,11 @@ CONTAINS
         !               |             |     direction +        |                      isgnv=1                                 
         !                                                      
         !----------------------------------------------------------------------------------------------------
-        isgnu = 1
-        IF( sec%slopeSection .GT. 0 ) THEN  ; isgnv = -1 
-        ELSE                                ; isgnv =  1
-        ENDIF
-        IF( sec%slopeSection .GE. 9999. )     isgnv =  1
+        ! JT      isgnu = 1
+        ! JT      IF( sec%slopeSection .GT. 0 ) THEN  ; isgnv = -1 
+        ! JT      ELSE                                ; isgnv =  1
+        ! JT      ENDIF
+        ! JT      IF( sec%slopeSection .GE. 9999. )     isgnv =  1
 
         IF( ld_debug )write(numout,*)"sec%slopeSection isgnu isgnv ",sec%slopeSection,isgnu,isgnv
 
@@ -835,33 +970,64 @@ CONTAINS
         ! LOOP ON THE SEGMENT BETWEEN 2 NODES  !
         !--------------------------------------!
         DO jseg=1,MAX(sec%nb_point-1,0)
-              
+           
+           
+           !JT: Compute sign for velocities:
+           
+           !isgnu =  1
+           !isgnv =  1
+           !
+           ! JT changing sign of u and v is dependent on the direction of the section. 
+           !isgnu =  1
+           !isgnv =  1
+           !SELECT CASE( sec%direction(jseg) )
+           !CASE(0)  ;   isgnv = -1
+           !CASE(3)  ;   isgnu = -1
+           !END SELECT
+           
+           
+           SELECT CASE( sec%direction(jseg) )
+           CASE(0)  
+              isgnu =  1
+              isgnv = -1
+           CASE(1)
+              isgnu =  1
+              isgnv =  1
+           CASE(2)  
+              isgnu =  1
+              isgnv =  1
+           CASE(3)  
+              isgnu = -1
+              isgnv =  1
+           END SELECT
+           
            !-------------------------------------------------------------------------------------------
            ! Select the appropriate coordinate for computing the velocity of the segment
+           ! Corrected by JT 01/09/2018 (#)
            !
            !                      CASE(0)                                    Case (2)
            !                      -------                                    --------
            !  listPoint(jseg)                 listPoint(jseg+1)       listPoint(jseg)  F(i,j)      
-           !      F(i,j)----------V(i+1,j)-------F(i+1,j)                               |
-           !                                                                            |
-           !                                                                            |
-           !                                                                            |
-           !                      Case (3)                                            U(i,j)
-           !                      --------                                              |
-           !                                                                            |
+           !      F(i,j)---------#V(i,j)-------F(i+1,j)                                 |
+           !                     -------->                                              |
+           !                                                                        |   |
+           !                                                                        |   |
+           !                      Case (3)                                          | U(i,j)
+           !                      --------                                          |   |
+           !                                                                        V   |
            !  listPoint(jseg+1) F(i,j+1)                                                |
            !                        |                                                   |
            !                        |                                                   |
            !                        |                                 listPoint(jseg+1) F(i,j-1)
-           !                        |                                            
-           !                        |                                            
-           !                     U(i,j+1)                                            
-           !                        |                                       Case(1)     
-           !                        |                                       ------      
+           !                   ^    |                                            
+           !                   |    |                                            
+           !                   | U(i,j+1)                                            
+           !                   |    |                                       Case(1)     
+           !                   |    |                                       ------      
            !                        |                                            
            !                        |                 listPoint(jseg+1)             listPoint(jseg)                           
-           !                        |                 F(i-1,j)-----------V(i,j) -------f(jseg)                           
-           ! listPoint(jseg)     F(i,j)
+           !                        |                 F(i-1,j)----------#V(i-1,j) ------#f(i,j)                           
+           ! listPoint(jseg)     F(i,j)                                 <-------
            ! 
            !-------------------------------------------------------------------------------------------
 
@@ -877,8 +1043,8 @@ CONTAINS
            !---------------------------|
            !Sum of the transport on the vertical 
            DO jk=1,mbathy(k%I,k%J)
- 
-              ! compute temperature, salinity, insitu & potential density, ssh and depth at U/V point 
+
+              ! compute temperature, salinity, insitu & potential density, ssh and depth at U/V point
               SELECT CASE( sec%direction(jseg) )
               CASE(0,1)
                  ztn   = interp(k%I,k%J,jk,'V',tsn(:,:,:,jp_tem) )
@@ -1015,8 +1181,22 @@ CONTAINS
      !---------------------------!
      !  COMPUTE TRANSPORT        !
      !---------------------------!
-     IF(sec%nb_point .NE. 0)THEN   
+     IF(sec%nb_point .NE. 0)THEN
 
+        !----------------------------------------------------------------------------------------------------
+        !----------------------------------------------------------------------------------------------------
+        !----------------------------------------------------------------------------------------------------
+        !
+        !
+        ! ! ! ! JT 1/09/2018 - changing convention. Always direction + is toward left hand of section
+        !
+        !    Making sign of the velocities used to calculate the volume transport a function of direction, not slopesection
+        !    (isgnu, isgnv)
+        !    
+        !    They vary for each segment of the section. 
+        !
+        !----------------------------------------------------------------------------------------------------
+        !----------------------------------------------------------------------------------------------------
         !----------------------------------------------------------------------------------------------------
         !Compute sign for velocities:
         !
@@ -1038,10 +1218,11 @@ CONTAINS
         !               |             |     direction +        |                      isgnv=1                                 
         !                                                      
         !----------------------------------------------------------------------------------------------------
-        isgnu = 1
-        IF( sec%slopeSection .GT. 0 ) THEN  ; isgnv = -1 
-        ELSE                                ; isgnv =  1
-        ENDIF
+        ! JT      isgnu = 1
+        ! JT      IF( sec%slopeSection .GT. 0 ) THEN  ; isgnv = -1 
+        ! JT      ELSE                                ; isgnv =  1
+        ! JT      ENDIF
+        ! JT      IF( sec%slopeSection .GE. 9999. )     isgnv =  1
 
         IF( ld_debug )write(numout,*)"isgnu isgnv ",isgnu,isgnv
 
@@ -1049,33 +1230,64 @@ CONTAINS
         ! LOOP ON THE SEGMENT BETWEEN 2 NODES  !
         !--------------------------------------!
         DO jseg=1,MAX(sec%nb_point-1,0)
-              
+           
+           
+           !JT: Compute sign for velocities:
+           
+           !isgnu =  1
+           !isgnv =  1
+           !
+           ! JT changing sign of u and v is dependent on the direction of the section. 
+           !isgnu =  1
+           !isgnv =  1
+           !SELECT CASE( sec%direction(jseg) )
+           !CASE(0)  ;   isgnv = -1
+           !CASE(3)  ;   isgnu = -1
+           !END SELECT
+           
+           
+           SELECT CASE( sec%direction(jseg) )
+           CASE(0)  
+              isgnu =  1
+              isgnv = -1
+           CASE(1)
+              isgnu =  1
+              isgnv =  1
+           CASE(2)  
+              isgnu =  1
+              isgnv =  1
+           CASE(3)  
+              isgnu = -1
+              isgnv =  1
+           END SELECT
+           
            !-------------------------------------------------------------------------------------------
            ! Select the appropriate coordinate for computing the velocity of the segment
+           ! Corrected by JT 01/09/2018 (#)
            !
            !                      CASE(0)                                    Case (2)
            !                      -------                                    --------
            !  listPoint(jseg)                 listPoint(jseg+1)       listPoint(jseg)  F(i,j)      
-           !      F(i,j)----------V(i+1,j)-------F(i+1,j)                               |
-           !                                                                            |
-           !                                                                            |
-           !                                                                            |
-           !                      Case (3)                                            U(i,j)
-           !                      --------                                              |
-           !                                                                            |
+           !      F(i,j)---------#V(i,j)-------F(i+1,j)                                 |
+           !                     -------->                                              |
+           !                                                                        |   |
+           !                                                                        |   |
+           !                      Case (3)                                          | U(i,j)
+           !                      --------                                          |   |
+           !                                                                        V   |
            !  listPoint(jseg+1) F(i,j+1)                                                |
            !                        |                                                   |
            !                        |                                                   |
            !                        |                                 listPoint(jseg+1) F(i,j-1)
-           !                        |                                            
-           !                        |                                            
-           !                     U(i,j+1)                                            
-           !                        |                                       Case(1)     
-           !                        |                                       ------      
+           !                   ^    |                                            
+           !                   |    |                                            
+           !                   | U(i,j+1)                                            
+           !                   |    |                                       Case(1)     
+           !                   |    |                                       ------      
            !                        |                                            
            !                        |                 listPoint(jseg+1)             listPoint(jseg)                           
-           !                        |                 F(i-1,j)-----------V(i,j) -------f(jseg)                           
-           ! listPoint(jseg)     F(i,j)
+           !                        |                 F(i-1,j)----------#V(i-1,j) ------#f(i,j)                           
+           ! listPoint(jseg)     F(i,j)                                 <-------
            ! 
            !-------------------------------------------------------------------------------------------
 
@@ -1092,7 +1304,7 @@ CONTAINS
            !Sum of the transport on the vertical 
            DO jk=1,mbathy(k%I,k%J)
 
-              ! compute temparature, salinity, insitu & potential density, ssh and depth at U/V point
+              ! compute temperature, salinity, insitu & potential density, ssh and depth at U/V point
               SELECT CASE( sec%direction(jseg) )
               CASE(0,1)
                  ztn   = interp(k%I,k%J,jk,'V',tsn(:,:,:,jp_tem) )
@@ -1648,7 +1860,11 @@ CONTAINS
      REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::   noos_iom_dummy
      INTEGER               :: IERR
      
+     REAL(wp), DIMENSION(3) :: tmp_iom_output
+     REAL(wp)               :: max_iom_val
+     
      !!------------------------------------------------------------- 
+     
      
      
      IF( lwp ) THEN
@@ -1661,10 +1877,16 @@ CONTAINS
 
      zsumclasses(:)=0._wp
      zslope = sec%slopeSection       
-
+     
      IF( lwp ) THEN
-       WRITE(numdct_NOOS,'(I4,a1,I2,a1,I2,a12,i3,a17,i3,a10,a25)') nyear,'.',nmonth,'.',nday,'   Transect:',ksec-1,'   No. of layers:',sec%nb_class-1,'   Name: ',sec%name
-     ENDIF   
+         IF  ( ln_dct_ascii ) THEN
+             WRITE(numdct_NOOS,'(I4,a1,I2,a1,I2,a12,i3,a17,i3,a10,a25)') nyear,'.',nmonth,'.',nday,'   Transect:',ksec-1,'   No. of layers:',sec%nb_class-1,'   Name: ',sec%name
+         ELSE
+             WRITE(numdct_NOOS) nyear,nmonth,nday,ksec-1,sec%nb_class-1,sec%name
+         ENDIF  
+     ENDIF
+    
+     ! Sum all classes together, to give one values per type (pos tran, neg vol trans etc...). 
      DO jclass=1,MAX(1,sec%nb_class-1)
         zsumclasses(1:nb_type)=zsumclasses(1:nb_type)+sec%transport(1:nb_type,jclass)
      ENDDO
@@ -1677,87 +1899,414 @@ CONTAINS
      
      write (noos_sect_name, "(I0.3)")  ksec
      
-     ALLOCATE( noos_iom_dummy(jpi,jpj,3),  STAT= ierr )
-        IF( ierr /= 0 )   CALL ctl_stop( 'dia_dct_wri_NOOS: failed to allocate noos_iom_dummy array' )
-        
+     IF ( ln_dct_iom_cont ) THEN
+         max_iom_val = 1.e10
+         ALLOCATE( noos_iom_dummy(jpi,jpj,3),  STAT= ierr )
+            IF( ierr /= 0 )   CALL ctl_stop( 'dia_dct_wri_NOOS: failed to allocate noos_iom_dummy array' )
+     ENDIF
+     
+!     JT
+!     JT
+!     JT
+!     JT   I think changing the sign on the output based on the zslope value is redunant.
+!     JT
+!     JT
+!     JT
+!     JT
+!     JT
+!
+!
+!
+!     IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
+!         
+!         IF( lwp ) THEN
+!             WRITE(numdct_NOOS,'(9e12.4E2)') -(zsumclasses( 1)+zsumclasses( 2)), -zsumclasses( 2),-zsumclasses( 1),   &
+!                                            -(zsumclasses( 7)+zsumclasses( 8)), -zsumclasses( 8),-zsumclasses( 7),   &
+!                                            -(zsumclasses( 9)+zsumclasses(10)), -zsumclasses(10),-zsumclasses( 9)
+!             CALL FLUSH(numdct_NOOS) 
+!         endif
+
+!         
+!         IF ( ln_dct_iom_cont ) THEN
+!         
+!             noos_iom_dummy(:,:,:) = 0.
+!             
+!             tmp_iom_output(:) = 0.
+!             tmp_iom_output(1) = -(zsumclasses( 1)+zsumclasses( 2))
+!             tmp_iom_output(2) = -zsumclasses( 2)
+!             tmp_iom_output(3) = -zsumclasses( 1)
+!             
+!             ! Convert to Sv 
+!             tmp_iom_output(1) = tmp_iom_output(1)*1.E-6
+!             tmp_iom_output(2) = tmp_iom_output(2)*1.E-6
+!             tmp_iom_output(3) = tmp_iom_output(3)*1.E-6
+!             
+!             ! limit maximum and minimum values in iom_put
+!             if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+!             if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+!             if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+!             if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+!             if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+!             if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+!             
+!             ! Set NaN's to Zero         
+!             if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+!             
+!             noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+!             noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+!             noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+!             
+!             noos_var_sect_name = "noos_" // trim(noos_sect_name) // '_trans'
+!             if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
+!             CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
+!             noos_iom_dummy(:,:,:) = 0.         
+!             tmp_iom_output(:) = 0.
+!             tmp_iom_output(1) = -(zsumclasses( 7)+zsumclasses( 8))
+!             tmp_iom_output(2) = -zsumclasses( 8)
+!             tmp_iom_output(3) = -zsumclasses( 7)
+!             
+!             ! Convert to TJ/s
+!             tmp_iom_output(1) = tmp_iom_output(1)*1.E-12
+!             tmp_iom_output(2) = tmp_iom_output(2)*1.E-12
+!             tmp_iom_output(3) = tmp_iom_output(3)*1.E-12
+!             
+!             ! limit maximum and minimum values in iom_put
+!             if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+!             if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+!             if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+!             if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+!             if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+!             if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+!             
+!             ! Set NaN's to Zero         
+!             if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+!             
+!             noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+!             noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+!             noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+!             
+!             !noos_iom_dummy(:,:,1) = -(zsumclasses( 7)+zsumclasses( 8))
+!             !noos_iom_dummy(:,:,2) = -zsumclasses( 8)
+!             !noos_iom_dummy(:,:,3) = -zsumclasses( 7)
+!             
+!             noos_var_sect_name =  "noos_" // trim(noos_sect_name) // '_heat'
+!             if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
+!             CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
+!              
+!             noos_iom_dummy(:,:,:) = 0.         
+!             tmp_iom_output(:) = 0.         
+!             tmp_iom_output(1) = -(zsumclasses( 9)+zsumclasses( 10))
+!             tmp_iom_output(2) = -zsumclasses( 10)
+!             tmp_iom_output(3) = -zsumclasses( 9)
+!             
+!             ! Convert to  MT/s
+!             tmp_iom_output(1) = tmp_iom_output(1)*1.E-6
+!             tmp_iom_output(2) = tmp_iom_output(2)*1.E-6
+!             tmp_iom_output(3) = tmp_iom_output(3)*1.E-6
+!             
+!             ! limit maximum and minimum values in iom_put
+!             if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+!             if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+!             if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+!             if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+!             if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+!             if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+!             
+!             ! Set NaN's to Zero         
+!             if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+!             
+!             noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+!             noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+!             noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+!             
+!             !noos_iom_dummy(:,:,1) = -(zsumclasses( 9)+zsumclasses( 10))
+!             !noos_iom_dummy(:,:,2) = -zsumclasses( 10)
+!             !noos_iom_dummy(:,:,3) = -zsumclasses( 9)
+!             
+!             noos_var_sect_name =  "noos_" // trim(noos_sect_name) // '_salt'
+!             if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
+!             CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
+!             noos_iom_dummy(:,:,:) = 0.     
+!             tmp_iom_output(:) = 0.    
+!         ENDIF
+!     ELSE
+!        IF( lwp ) THEN
+!            WRITE(numdct_NOOS,'(9e12.4E2)')   zsumclasses( 1)+zsumclasses( 2) ,  zsumclasses( 1), zsumclasses( 2),   &
+!                                            zsumclasses( 7)+zsumclasses( 8) ,  zsumclasses( 7), zsumclasses( 8),   &
+!                                            zsumclasses( 9)+zsumclasses(10) ,  zsumclasses( 9), zsumclasses(10)
+!            CALL FLUSH(numdct_NOOS) 
+!        endif
+!         
+!         
+!        IF ( ln_dct_iom_cont ) THEN
+!            
+!             noos_iom_dummy(:,:,:) = 0.
+!             tmp_iom_output(:) = 0.
+!             
+!             tmp_iom_output(1) = (zsumclasses( 1)+zsumclasses( 2))
+!             tmp_iom_output(2) = zsumclasses( 1)
+!             tmp_iom_output(3) = zsumclasses( 2)
+!             
+!             ! Convert to Sv
+!             tmp_iom_output(1) = tmp_iom_output(1)*1.E-6
+!             tmp_iom_output(2) = tmp_iom_output(2)*1.E-6
+!             tmp_iom_output(3) = tmp_iom_output(3)*1.E-6
+!             
+!             ! limit maximum and minimum values in iom_put
+!             if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+!             if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+!             if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+!             if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+!             if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+!             if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+!             
+!             ! Set NaN's to Zero         
+!             if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+!             
+!             noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+!             noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+!             noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+!             
+!             !noos_iom_dummy(:,:,1) = (zsumclasses( 1)+zsumclasses( 2))
+!             !noos_iom_dummy(:,:,2) = zsumclasses( 1)
+!             !noos_iom_dummy(:,:,3) = zsumclasses( 2)
+!             
+!             
+!             
+!             noos_var_sect_name = "noos_" // trim(noos_sect_name) // '_trans'
+!             if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
+!             CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
+!             noos_iom_dummy(:,:,:) = 0.
+!             tmp_iom_output(:) = 0.
+!             
+!             tmp_iom_output(1) = (zsumclasses( 7)+zsumclasses( 8))
+!             tmp_iom_output(2) = zsumclasses( 7)
+!             tmp_iom_output(3) = zsumclasses( 8)
+!             
+!             ! Convert to TJ/s
+!             tmp_iom_output(1) = tmp_iom_output(1)*1.E-12
+!             tmp_iom_output(2) = tmp_iom_output(2)*1.E-12
+!             tmp_iom_output(3) = tmp_iom_output(3)*1.E-12
+!             
+!             ! limit maximum and minimum values in iom_put
+!             if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+!             if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+!             if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+!             if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+!             if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+!             if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+!             
+!             ! Set NaN's to Zero         
+!             if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+!             
+!             noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+!             noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+!             noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+!             
+!             !noos_iom_dummy(:,:,1) = (zsumclasses( 7)+zsumclasses( 8))
+!             !noos_iom_dummy(:,:,2) = zsumclasses( 7)
+!             !noos_iom_dummy(:,:,3) = zsumclasses( 8)
+!             
+!             noos_var_sect_name =  "noos_" // trim(noos_sect_name) // '_heat'
+!             if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
+!             CALL iom_put(noos_var_sect_name,  noos_iom_dummy )  
+!             noos_iom_dummy(:,:,:) = 0.
+!             tmp_iom_output(:) = 0.
+!             
+!             tmp_iom_output(1) = (zsumclasses( 9)+zsumclasses( 10))
+!             tmp_iom_output(2) = zsumclasses( 9)
+!             tmp_iom_output(3) = zsumclasses( 10)
+!             
+!             ! Convert to  MT/s
+!             tmp_iom_output(1) = tmp_iom_output(1)*1.E-6
+!             tmp_iom_output(2) = tmp_iom_output(2)*1.E-6
+!             tmp_iom_output(3) = tmp_iom_output(3)*1.E-6
+!             
+!             
+!             ! limit maximum and minimum values in iom_put
+!             if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+!             if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+!             if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+!             if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+!             if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+!             if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+!             
+!             ! Set NaN's to Zero         
+!             if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+!             if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+!             
+!             noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+!             noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+!             noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+!             
+!             !noos_iom_dummy(:,:,1) = (zsumclasses( 9)+zsumclasses( 10))
+!             !noos_iom_dummy(:,:,2) = zsumclasses( 9)
+!             !noos_iom_dummy(:,:,3) = zsumclasses( 10)
+!             
+!             noos_var_sect_name = "noos_" // trim(noos_sect_name) // '_salt'
+!             if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
+!             CALL iom_put(noos_var_sect_name,  noos_iom_dummy )
+!             noos_iom_dummy(:,:,:) = 0.         
+!             tmp_iom_output(:) = 0.
+!         ENDIF
+!         
+!     ENDIF 
      
 
-     IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
+
+
+
+
+
+
+     
      
      IF( lwp ) THEN
-        WRITE(numdct_NOOS,'(9e12.4E2)') -(zsumclasses( 1)+zsumclasses( 2)), -zsumclasses( 2),-zsumclasses( 1),   &
-                                        -(zsumclasses( 7)+zsumclasses( 8)), -zsumclasses( 8),-zsumclasses( 7),   &
-                                        -(zsumclasses( 9)+zsumclasses(10)), -zsumclasses(10),-zsumclasses( 9)
-    endif
-
+        IF  ( ln_dct_ascii ) THEN
+             !WRITE(numdct_NOOS,'(9e12.4E2)')   zsumclasses( 1)+zsumclasses( 2) ,  zsumclasses( 1), zsumclasses( 2),   &
+             WRITE(numdct_NOOS,'(3F18.3,6e16.8E2)')   zsumclasses( 1)+zsumclasses( 2) ,  zsumclasses( 1), zsumclasses( 2),   &
+                                             zsumclasses( 7)+zsumclasses( 8) ,  zsumclasses( 7), zsumclasses( 8),   &
+                                             zsumclasses( 9)+zsumclasses(10) ,  zsumclasses( 9), zsumclasses(10)
+             CALL FLUSH(numdct_NOOS)
+        ELSE
+             WRITE(numdct_NOOS)   zsumclasses( 1)+zsumclasses( 2) ,  zsumclasses( 1), zsumclasses( 2),   &
+                                  zsumclasses( 7)+zsumclasses( 8) ,  zsumclasses( 7), zsumclasses( 8),   &
+                                  zsumclasses( 9)+zsumclasses(10) ,  zsumclasses( 9), zsumclasses(10)
+             CALL FLUSH(numdct_NOOS) 
+         ENDIF
+     ENDIF
          
+    IF ( ln_dct_iom_cont ) THEN
+        
          noos_iom_dummy(:,:,:) = 0.
+         tmp_iom_output(:) = 0.
          
-         noos_iom_dummy(:,:,1) = -(zsumclasses( 1)+zsumclasses( 2))
-         noos_iom_dummy(:,:,2) = -zsumclasses( 2)
-         noos_iom_dummy(:,:,3) = -zsumclasses( 1)
+         tmp_iom_output(1) = (zsumclasses( 1)+zsumclasses( 2))
+         tmp_iom_output(2) = zsumclasses( 1)
+         tmp_iom_output(3) = zsumclasses( 2)
+         
+         ! Convert to Sv
+         tmp_iom_output(1) = tmp_iom_output(1)*1.E-6
+         tmp_iom_output(2) = tmp_iom_output(2)*1.E-6
+         tmp_iom_output(3) = tmp_iom_output(3)*1.E-6
+         
+         ! limit maximum and minimum values in iom_put
+         if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+         if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+         if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+         if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+         if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+         if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+         
+         ! Set NaN's to Zero         
+         if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+         if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+         if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+         
+         noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+         noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+         noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+         
+         !noos_iom_dummy(:,:,1) = (zsumclasses( 1)+zsumclasses( 2))
+         !noos_iom_dummy(:,:,2) = zsumclasses( 1)
+         !noos_iom_dummy(:,:,3) = zsumclasses( 2)
+         
+         
          
          noos_var_sect_name = "noos_" // trim(noos_sect_name) // '_trans'
          if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
-      CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
+         CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
          noos_iom_dummy(:,:,:) = 0.
+         tmp_iom_output(:) = 0.
          
-         noos_iom_dummy(:,:,1) = -(zsumclasses( 7)+zsumclasses( 8))
-         noos_iom_dummy(:,:,2) = -zsumclasses( 8)
-         noos_iom_dummy(:,:,3) = -zsumclasses( 7)
+         tmp_iom_output(1) = (zsumclasses( 7)+zsumclasses( 8))
+         tmp_iom_output(2) = zsumclasses( 7)
+         tmp_iom_output(3) = zsumclasses( 8)
+         
+         ! Convert to TJ/s
+         tmp_iom_output(1) = tmp_iom_output(1)*1.E-12
+         tmp_iom_output(2) = tmp_iom_output(2)*1.E-12
+         tmp_iom_output(3) = tmp_iom_output(3)*1.E-12
+         
+         ! limit maximum and minimum values in iom_put
+         if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+         if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+         if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+         if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+         if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+         if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
+         
+         ! Set NaN's to Zero         
+         if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+         if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+         if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
+         
+         noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+         noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+         noos_iom_dummy(:,:,3) = tmp_iom_output(3)
+         
+         !noos_iom_dummy(:,:,1) = (zsumclasses( 7)+zsumclasses( 8))
+         !noos_iom_dummy(:,:,2) = zsumclasses( 7)
+         !noos_iom_dummy(:,:,3) = zsumclasses( 8)
          
          noos_var_sect_name =  "noos_" // trim(noos_sect_name) // '_heat'
          if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
-      CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
+         CALL iom_put(noos_var_sect_name,  noos_iom_dummy )  
          noos_iom_dummy(:,:,:) = 0.
+         tmp_iom_output(:) = 0.
          
-         noos_iom_dummy(:,:,1) = -(zsumclasses( 9)+zsumclasses( 10))
-         noos_iom_dummy(:,:,2) = -zsumclasses( 10)
-         noos_iom_dummy(:,:,3) = -zsumclasses( 9)
+         tmp_iom_output(1) = (zsumclasses( 9)+zsumclasses( 10))
+         tmp_iom_output(2) = zsumclasses( 9)
+         tmp_iom_output(3) = zsumclasses( 10)
          
-         noos_var_sect_name =  "noos_" // trim(noos_sect_name) // '_salt'
-         if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
-      CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
-         noos_iom_dummy(:,:,:) = 0.
-     ELSE
-      IF( lwp ) THEN
-          WRITE(numdct_NOOS,'(9e12.4E2)')   zsumclasses( 1)+zsumclasses( 2) ,  zsumclasses( 1), zsumclasses( 2),   &
-                                            zsumclasses( 7)+zsumclasses( 8) ,  zsumclasses( 7), zsumclasses( 8),   &
-                                            zsumclasses( 9)+zsumclasses(10) ,  zsumclasses( 9), zsumclasses(10)
-      endif
-                                          
+         ! Convert to  MT/s
+         tmp_iom_output(1) = tmp_iom_output(1)*1.E-6
+         tmp_iom_output(2) = tmp_iom_output(2)*1.E-6
+         tmp_iom_output(3) = tmp_iom_output(3)*1.E-6
          
-         noos_iom_dummy(:,:,1) = (zsumclasses( 1)+zsumclasses( 2))
-         noos_iom_dummy(:,:,2) = zsumclasses( 1)
-         noos_iom_dummy(:,:,3) = zsumclasses( 2)
          
-         noos_var_sect_name = "noos_" // trim(noos_sect_name) // '_trans'
-         if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
-      CALL iom_put( noos_var_sect_name,  noos_iom_dummy )
-         noos_iom_dummy(:,:,:) = 0.
+         ! limit maximum and minimum values in iom_put
+         if ( tmp_iom_output(1) .gt.  max_iom_val ) tmp_iom_output(1) =  max_iom_val
+         if ( tmp_iom_output(1) .lt. -max_iom_val ) tmp_iom_output(1) = -max_iom_val
+         if ( tmp_iom_output(2) .gt.  max_iom_val ) tmp_iom_output(2) =  max_iom_val
+         if ( tmp_iom_output(2) .lt. -max_iom_val ) tmp_iom_output(2) = -max_iom_val
+         if ( tmp_iom_output(3) .gt.  max_iom_val ) tmp_iom_output(3) =  max_iom_val
+         if ( tmp_iom_output(3) .lt. -max_iom_val ) tmp_iom_output(3) = -max_iom_val
          
-         noos_iom_dummy(:,:,1) = (zsumclasses( 7)+zsumclasses( 8))
-         noos_iom_dummy(:,:,2) = zsumclasses( 7)
-         noos_iom_dummy(:,:,3) = zsumclasses( 8)
+         ! Set NaN's to Zero         
+         if ( tmp_iom_output(1) .ne.  tmp_iom_output(1) ) tmp_iom_output(1) =  max_iom_val*2
+         if ( tmp_iom_output(2) .ne.  tmp_iom_output(2) ) tmp_iom_output(1) =  max_iom_val*2
+         if ( tmp_iom_output(3) .ne.  tmp_iom_output(3) ) tmp_iom_output(1) =  max_iom_val*2
          
-         noos_var_sect_name =  "noos_" // trim(noos_sect_name) // '_heat'
-         if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
-      CALL iom_put(noos_var_sect_name,  noos_iom_dummy )      
-         noos_iom_dummy(:,:,:) = 0.
+         noos_iom_dummy(:,:,1) = tmp_iom_output(1)
+         noos_iom_dummy(:,:,2) = tmp_iom_output(2)
+         noos_iom_dummy(:,:,3) = tmp_iom_output(3)
          
-         noos_iom_dummy(:,:,1) = (zsumclasses( 9)+zsumclasses( 10))
-         noos_iom_dummy(:,:,2) = zsumclasses( 9)
-         noos_iom_dummy(:,:,3) = zsumclasses( 10)
+         !noos_iom_dummy(:,:,1) = (zsumclasses( 9)+zsumclasses( 10))
+         !noos_iom_dummy(:,:,2) = zsumclasses( 9)
+         !noos_iom_dummy(:,:,3) = zsumclasses( 10)
          
          noos_var_sect_name = "noos_" // trim(noos_sect_name) // '_salt'
          if ( lwp ) WRITE(numout,*) 'dia_dct_wri_NOOS iom_put: ', kt,ksec, noos_var_sect_name
-      CALL iom_put(noos_var_sect_name,  noos_iom_dummy )
-         noos_iom_dummy(:,:,:) = 0.
-         
-     ENDIF 
+         CALL iom_put(noos_var_sect_name,  noos_iom_dummy )
+         noos_iom_dummy(:,:,:) = 0.         
+         tmp_iom_output(:) = 0.
+
+
+        DEALLOCATE(noos_iom_dummy)
+     ENDIF
      
-     
-     DEALLOCATE(noos_iom_dummy)
 
      DO jclass=1,MAX(1,sec%nb_class-1)
    
@@ -1802,22 +2351,44 @@ CONTAINS
         ENDIF
                   
         !write volume transport per class
-        
         IF( lwp ) THEN
-            IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
-              WRITE(numdct_NOOS,'(9e12.4E2)') -(sec%transport( 1,jclass)+sec%transport( 2,jclass)),-sec%transport( 2,jclass),-sec%transport( 1,jclass), &
-                                              -(sec%transport( 7,jclass)+sec%transport( 8,jclass)),-sec%transport( 8,jclass),-sec%transport( 7,jclass), &
-                                              -(sec%transport( 9,jclass)+sec%transport(10,jclass)),-sec%transport(10,jclass),-sec%transport( 9,jclass)
+            
+            IF  ( ln_dct_ascii ) THEN
+                CALL FLUSH(numdct_NOOS) ! JT crash
+
+
+
+                !JT    IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
+                !JT      WRITE(numdct_NOOS,'(9e12.4E2)') -(sec%transport( 1,jclass)+sec%transport( 2,jclass)),-sec%transport( 2,jclass),-sec%transport( 1,jclass), &
+                !JT                                      -(sec%transport( 7,jclass)+sec%transport( 8,jclass)),-sec%transport( 8,jclass),-sec%transport( 7,jclass), &
+                !JT                                      -(sec%transport( 9,jclass)+sec%transport(10,jclass)),-sec%transport(10,jclass),-sec%transport( 9,jclass)
+                !JT    ELSE
+                !JT      WRITE(numdct_NOOS,'(9e12.4E2)')   sec%transport( 1,jclass)+sec%transport( 2,jclass) , sec%transport( 1,jclass), sec%transport( 2,jclass), &
+                !JT                                        sec%transport( 7,jclass)+sec%transport( 8,jclass) , sec%transport( 7,jclass), sec%transport( 8,jclass), &
+                !JT                                        sec%transport( 9,jclass)+sec%transport(10,jclass) , sec%transport( 9,jclass), sec%transport(10,jclass)
+                !JT    ENDIF
+
+
+                !WRITE(numdct_NOOS,'(9e12.4E2)')   sec%transport( 1,jclass)+sec%transport( 2,jclass) , sec%transport( 1,jclass), sec%transport( 2,jclass), &
+                !                                  sec%transport( 7,jclass)+sec%transport( 8,jclass) , sec%transport( 7,jclass), sec%transport( 8,jclass), &
+                !                                  sec%transport( 9,jclass)+sec%transport(10,jclass) , sec%transport( 9,jclass), sec%transport(10,jclass)
+                WRITE(numdct_NOOS,'(3F18.3,6e16.8E2)')   sec%transport( 1,jclass)+sec%transport( 2,jclass) , sec%transport( 1,jclass), sec%transport( 2,jclass), &
+                                                         sec%transport( 7,jclass)+sec%transport( 8,jclass) , sec%transport( 7,jclass), sec%transport( 8,jclass), &
+                                                         sec%transport( 9,jclass)+sec%transport(10,jclass) , sec%transport( 9,jclass), sec%transport(10,jclass)
             ELSE
-              WRITE(numdct_NOOS,'(9e12.4E2)')   sec%transport( 1,jclass)+sec%transport( 2,jclass) , sec%transport( 1,jclass), sec%transport( 2,jclass), &
-                                                sec%transport( 7,jclass)+sec%transport( 8,jclass) , sec%transport( 7,jclass), sec%transport( 8,jclass), &
-                                                sec%transport( 9,jclass)+sec%transport(10,jclass) , sec%transport( 9,jclass), sec%transport(10,jclass)
+
+                CALL FLUSH(numdct_NOOS) ! JT crash
+                WRITE(numdct_NOOS)   sec%transport( 1,jclass)+sec%transport( 2,jclass) , sec%transport( 1,jclass), sec%transport( 2,jclass), &
+                                     sec%transport( 7,jclass)+sec%transport( 8,jclass) , sec%transport( 7,jclass), sec%transport( 8,jclass), &
+                                     sec%transport( 9,jclass)+sec%transport(10,jclass) , sec%transport( 9,jclass), sec%transport(10,jclass)
             ENDIF
         ENDIF
 
      ENDDO
      
-     if ( lwp ) CALL FLUSH(numdct_NOOS)
+     !IF  ( ln_dct_ascii ) THEN
+        if ( lwp ) CALL FLUSH(numdct_NOOS)
+     !ENDIF
 
      CALL wrk_dealloc(nb_type , zsumclasses )  
 
@@ -1857,7 +2428,7 @@ CONTAINS
 
      IF( lwp ) THEN
         WRITE(numout,*) " "
-        WRITE(numout,*) "dia_dct_wri_NOOS_h: write transports through sections at timestep: ", hr
+        WRITE(numout,*) "dia_dct_wri_NOOS_h: write transports through section Transect:",ksec-1," at timestep: ", hr
         WRITE(numout,*) "~~~~~~~~~~~~~~~~~~~~~"
      ENDIF   
      
@@ -1876,37 +2447,89 @@ CONTAINS
      zsumclasses(:)=0._wp
      zslope = sec%slopeSection       
 
+     ! Sum up all classes, to give the total per type (pos vol trans, neg vol trans etc...)
      DO jclass=1,MAX(1,sec%nb_class-1)
         zsumclasses(1:nb_type)=zsumclasses(1:nb_type)+sec%transport_h(1:nb_type,jclass)
      ENDDO
- 
-     !write volume transport per class
-     IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
-        z_hr_output(ksec,hr,1)=-(zsumclasses(1)+zsumclasses(2))
-     ELSE
-        z_hr_output(ksec,hr,1)= (zsumclasses(1)+zsumclasses(2))
-     ENDIF
+        
+     
+     ! JT
+     ! JT
+     ! JT
+     ! JT
+     ! JT I think changing the sign of output according to the zslope is redundant
+     ! JT
+     ! JT
+     ! JT
+     ! JT
 
+     ! JT     !write volume transport per class
+     ! JT     ! Sum positive and vol trans for all classes in first cell of array
+     ! JT     IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
+     ! JT        ! JT z_hr_output(ksec,hr,1)=-(zsumclasses(1)+zsumclasses(2))
+     ! JT        z_hr_output(ksec,1,1)=-(zsumclasses(1)+zsumclasses(2))
+     ! JT     ELSE
+     ! JT        ! JT z_hr_output(ksec,hr,1)= (zsumclasses(1)+zsumclasses(2))
+     ! JT        z_hr_output(ksec,1,1)= (zsumclasses(1)+zsumclasses(2))
+     ! JT     ENDIF
+     ! JT
+     ! JT     ! Sum positive and vol trans for each classes in following cell of array
+     ! JT     DO jclass=1,MAX(1,sec%nb_class-1)
+     ! JT        IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
+     ! JT           ! JT z_hr_output(ksec,hr,jclass+1)=-(sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
+     ! JT           z_hr_output(ksec,1,jclass+1)=-(sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
+     ! JT        ELSE
+     ! JT           ! JT z_hr_output(ksec,hr,jclass+1)= (sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
+     ! JT           z_hr_output(ksec,1,jclass+1)= (sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
+     ! JT        ENDIF
+     ! JT     ENDDO
+     
+     !write volume transport per class
+     ! Sum positive and vol trans for all classes in first cell of array
+
+     z_hr_output(ksec,1,1)= (zsumclasses(1)+zsumclasses(2))
+     z_hr_output(ksec,2,1)= zsumclasses(1)
+     z_hr_output(ksec,3,1)= zsumclasses(2)
+
+     ! Sum positive and vol trans for each classes in following cell of array
      DO jclass=1,MAX(1,sec%nb_class-1)
-        IF ( zslope .gt. 0._wp .and. zslope .ne. 10000._wp ) THEN
-           z_hr_output(ksec,hr,jclass+1)=-(sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
-        ELSE
-           z_hr_output(ksec,hr,jclass+1)= (sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
-        ENDIF
+        z_hr_output(ksec,1,jclass+1)= (sec%transport_h(1,jclass)+sec%transport_h(2,jclass))
+        z_hr_output(ksec,2,jclass+1)= sec%transport_h(1,jclass)
+        z_hr_output(ksec,3,jclass+1)= sec%transport_h(2,jclass)
      ENDDO
 
-     IF ( hr .eq. 48._wp ) THEN
-        WRITE(numdct_NOOS_h,'(I4,a1,I2,a1,I2,a12,i3,a17,i3)') nyear,'.',nmonth,'.',nday,'   Transect:',ksec-1,'   No. of layers:',sec%nb_class-1
-        DO jhr=25,48
-           WRITE(numdct_NOOS_h,'(11F12.1)')  z_hr_output(ksec,jhr,1), (z_hr_output(ksec,jhr,jclass+1), jclass=1,MAX(1,10) )
-        ENDDO
-     ENDIF
+    
+    IF( lwp )  THEN
+        ! JT IF ( hr .eq. 48._wp ) THEN
+        ! JT    WRITE(numdct_NOOS_h,'(I4,a1,I2,a1,I2,a12,i3,a17,i3)') nyear,'.',nmonth,'.',nday,'   Transect:',ksec-1,'   No. of layers:',sec%nb_class-1
+        ! JT    DO jhr=25,48
+        ! JT       WRITE(numdct_NOOS_h,'(11F12.1)')  z_hr_output(ksec,jhr,1), (z_hr_output(ksec,jhr,jclass+1), jclass=1,MAX(1,10) )
+        ! JT    ENDDO
+        ! JT ENDIF
+
+
+
+        IF ( ln_dct_ascii ) THEN
+            WRITE(numdct_NOOS_h,'(I4,a1,I2,a1,I2,a1,I2,a1,I2,a12,i3,a17,i3)') nyear,'.',nmonth,'.',nday,'.',MOD(hr,24),'.',0,'   Transect:',ksec-1,'   No. of layers:',sec%nb_class-1
+            WRITE(numdct_NOOS_h,'(11F18.3)')  z_hr_output(ksec,1,1), (z_hr_output(ksec,1,jclass+1), jclass=1,MAX(1,10) )
+            WRITE(numdct_NOOS_h,'(11F18.3)')  z_hr_output(ksec,2,1), (z_hr_output(ksec,2,jclass+1), jclass=1,MAX(1,10) )
+            WRITE(numdct_NOOS_h,'(11F18.3)')  z_hr_output(ksec,3,1), (z_hr_output(ksec,3,jclass+1), jclass=1,MAX(1,10) )
+            CALL FLUSH(numdct_NOOS_h)
+        ELSE
+            WRITE(numdct_NOOS_h) nyear,nmonth,nday,MOD(hr,24),ksec-1,sec%nb_class-1
+            WRITE(numdct_NOOS_h)  z_hr_output(ksec,1,1), (z_hr_output(ksec,1,jclass+1), jclass=1,MAX(1,10) )
+            WRITE(numdct_NOOS_h)  z_hr_output(ksec,2,1), (z_hr_output(ksec,2,jclass+1), jclass=1,MAX(1,10) )
+            WRITE(numdct_NOOS_h)  z_hr_output(ksec,3,1), (z_hr_output(ksec,3,jclass+1), jclass=1,MAX(1,10) )
+            CALL FLUSH(numdct_NOOS_h)
+        ENDIF
+
+
+     ENDIF 
+
 
      CALL wrk_dealloc(nb_type , zsumclasses )
      
      DEALLOCATE(noos_iom_dummy)
-
-
 
 
 

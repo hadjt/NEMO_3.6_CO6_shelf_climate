@@ -729,6 +729,7 @@ CONTAINS
       
       ! Local variables
       INTEGER, DIMENSION(jpi, jpj) :: internal_region_mask    ! Input 3d field and mask 
+      REAL(wp), DIMENSION(jpi, jpj) :: internal_infield    ! Internal data field
       REAL(wp), ALLOCATABLE, DIMENSION(:) ::   zrmet_ave,zrmet_tot,zrmet_var,zrmet_cnt,zrmet_mask_id,zrmet_reg_id  ,zrmet_min,zrmet_max
       REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::   zrmet_out
       REAL(wp), ALLOCATABLE,   DIMENSION(:) ::   ave_mat,tot_mat,num_mat,var_mat,ssq_mat,cnt_mat,reg_id_mat,mask_id_mat ,min_mat,max_mat   !: region_mask
@@ -743,7 +744,7 @@ CONTAINS
       CHARACTER(LEN=180) :: FormatString,nreg_string,tmp_name_iom
       REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::   dummy_zrmet
       LOGICAL       ::   verbose     
-      verbose = .FALSE.
+      verbose = .False.
 
 
       zmdi=1.e+20 !missing data indicator for maskin
@@ -771,13 +772,37 @@ CONTAINS
       ALLOCATE( zrmet_out(jpi,jpj,n_regions_output),  STAT= ierr )
         IF( ierr /= 0 )   CALL ctl_stop( 'dia_wri_region_mean: failed to allocate zrmet_reg_id array' )
 
-
+  
       
         IF(lwp .AND. verbose) THEN 
               WRITE(numout,*)
               WRITE(numout,*) 'dia_wri_region_mean : '//tmp_name//';'
               WRITE(numout,*)
         ENDIF
+        
+      DO ji = 1,jpi
+          DO jj = 1,jpj
+            internal_infield(ji,jj) = infield(ji,jj)
+          END DO
+      END DO
+        
+      ! Check for NANS # JT   03/09/2018
+      DO ji = 1,jpi
+          DO jj = 1,jpj
+              IF ( tmask(ji,jj,1) == 1.0_wp ) THEN
+                  IF ( internal_infield(ji,jj) .ne. internal_infield(ji,jj) ) THEN
+                      WRITE(numout,*) 'dia_wri_region_mean : '//tmp_name//' Nan at (kt,i,j): ',kt,ji - (-jpizoom+1-nimpp+1),jj - (-jpjzoom+1-njmpp+1)
+                      internal_infield(ji,jj) = 0.
+                  ENDIF
+              ELSE                
+                  IF ( internal_infield(ji,jj) .ne. internal_infield(ji,jj) ) THEN
+                      WRITE(numout,*) 'dia_wri_region_mean : '//tmp_name//' Masked Nan at (kt,i,j): ',kt,ji - (-jpizoom+1-nimpp+1),jj - (-jpjzoom+1-njmpp+1)
+                      internal_infield(ji,jj) = 0.
+                  ENDIF
+              ENDIF
+          END DO
+      END DO
+      
       
       zrmet_ave(:) = zmdi
       zrmet_tot(:) = zmdi
@@ -844,16 +869,16 @@ CONTAINS
           !CALL cpu_time(start_reg_mean_loop)
           !WRITE(numout,*) kt,start_reg_mean_loop
           IF(lwp .AND. verbose) WRITE(numout,*) 'dia_wri_region_mean : '//tmp_name//'; begin spatial loops: '
-          DO ji = 1,jpi
-              DO jj = 1,jpj
+          DO ji = nldi,nlei
+              DO jj = nldj,nlej
                     IF ( tmask(ji,jj,1) == 1.0_wp ) THEN
                         ind = internal_region_mask(ji,jj)+1
-                        tot_mat(ind) = tot_mat(ind) + (infield(ji,jj))
-                        ssq_mat(ind) = ssq_mat(ind) + ( infield(ji,jj) *  infield(ji,jj))
+                        tot_mat(ind) = tot_mat(ind) + (internal_infield(ji,jj))
+                        ssq_mat(ind) = ssq_mat(ind) + ( internal_infield(ji,jj) *  internal_infield(ji,jj))
                         cnt_mat(ind) = cnt_mat(ind) + 1.
 
-                        min_mat(ind) = min(min_mat(ind),infield(ji,jj))
-                        max_mat(ind) = max(max_mat(ind),infield(ji,jj))
+                        min_mat(ind) = min(min_mat(ind),internal_infield(ji,jj))
+                        max_mat(ind) = max(max_mat(ind),internal_infield(ji,jj))
                     ENDIF
               END DO
           END DO
@@ -962,7 +987,7 @@ CONTAINS
             zrmet_val = zrmet_ave(jm)
 !            if (zrmet_val .LT. -1e16) zrmet_val = -1e16
 !            if (zrmet_val .GT. 1e16) zrmet_val = 1e16
-!            if (zrmet_val .NE. zrmet_val) zrmet_val = 0.
+            if (zrmet_val .NE. zrmet_val) zrmet_val = 1e20
             zrmet_out(:,:,jm) = zrmet_val
           END DO      
           tmp_name_iom =  trim(trim("reg_") // trim(tmp_name) // trim('_ave'))
@@ -976,7 +1001,7 @@ CONTAINS
             zrmet_val = zrmet_tot(jm)
 !            if (zrmet_val .LT. -1e16) zrmet_val = -1e16
 !            if (zrmet_val .GT. 1e16) zrmet_val = 1e16
-!            if (zrmet_val .NE. zrmet_val) zrmet_val = 0.
+            if (zrmet_val .NE. zrmet_val) zrmet_val = 1e20
             zrmet_out(:,:,jm) = zrmet_val
           END DO
           tmp_name_iom =  trim(trim("reg_") // trim(tmp_name) // trim('_tot'))
@@ -990,7 +1015,7 @@ CONTAINS
             zrmet_val = zrmet_var(jm)
 !            if (zrmet_val .LT. -1e16) zrmet_val = -1e16
 !            if (zrmet_val .GT. 1e16) zrmet_val = 1e16
-!            if (zrmet_val .NE. zrmet_val) zrmet_val = 0.
+            if (zrmet_val .NE. zrmet_val) zrmet_val = 1e20
             zrmet_out(:,:,jm) = zrmet_val
           END DO
           tmp_name_iom =  trim(trim("reg_") // trim(tmp_name) // trim('_var'))
@@ -1004,7 +1029,7 @@ CONTAINS
             zrmet_val = zrmet_cnt(jm)
 !            if (zrmet_val .LT. -1e16) zrmet_val = -1e16
 !            if (zrmet_val .GT. 1e16) zrmet_val = 1e16
-!            if (zrmet_val .NE. zrmet_val) zrmet_val = 0.
+            if (zrmet_val .NE. zrmet_val) zrmet_val = 1e20
             zrmet_out(:,:,jm) = zrmet_val
           END DO
           tmp_name_iom =  trim(trim("reg_") // trim(tmp_name) // trim('_cnt'))
@@ -1018,7 +1043,7 @@ CONTAINS
             zrmet_val = zrmet_reg_id(jm)
 !            if (zrmet_val .LT. -1e16) zrmet_val = -1e16
 !            if (zrmet_val .GT. 1e16) zrmet_val = 1e16
-!            if (zrmet_val .NE. zrmet_val) zrmet_val = 0.
+            if (zrmet_val .NE. zrmet_val) zrmet_val = 1e20
             zrmet_out(:,:,jm) = zrmet_val
           END DO
           tmp_name_iom =  trim(trim("reg_") // trim(tmp_name) // trim('_reg_id'))
@@ -1032,7 +1057,7 @@ CONTAINS
             zrmet_val = zrmet_mask_id(jm)
 !            if (zrmet_val .LT. -1e16) zrmet_val = -1e16
 !            if (zrmet_val .GT. 1e16) zrmet_val = 1e16
-!            if (zrmet_val .NE. zrmet_val) zrmet_val = 0.
+            if (zrmet_val .NE. zrmet_val) zrmet_val = 1e20
             zrmet_out(:,:,jm) = zrmet_val
           END DO
           tmp_name_iom =  trim(trim("reg_") // trim(tmp_name) // trim('_mask_id'))

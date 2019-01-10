@@ -204,7 +204,7 @@ CONTAINS
       zbotpres(:,:) = zztmp * ( zbotpres(:,:) + sshn(:,:) + thick0(:,:) )
       zbotpres_mat(:,:) = zbotpres(:,:)
       CALL iom_put( 'botpres', zbotpres_mat )
-
+      
       !                                         ! Mean density anomalie, temperature and salinity
       ztemp = 0._wp
       zsal  = 0._wp
