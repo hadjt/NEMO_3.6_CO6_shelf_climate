@@ -86,7 +86,8 @@ MODULE diadct
   INTEGER, PARAMETER :: nb_class_max  = 11   ! maximum number of classes, i.e. depth levels or density classes
   ! JT INTEGER, PARAMETER :: nb_sec_max    = 30   ! maximum number of sections
   INTEGER, PARAMETER :: nb_sec_max    = 80   !50 maximum number of sections
-  INTEGER, PARAMETER :: nb_point_max  = 150  !375 maximum number of points in a single section
+  !JT INTEGER, PARAMETER :: nb_point_max  = 150  !375 maximum number of points in a single section
+  INTEGER, PARAMETER :: nb_point_max  = 275  !375 maximum number of points in a single section
 
 
 
