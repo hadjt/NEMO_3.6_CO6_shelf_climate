@@ -146,8 +146,8 @@ CONTAINS
       TYPE(OBC_INDEX),              INTENT(in) ::   idx  ! OBC indices
       TYPE(OBC_DATA),               INTENT(in) ::   dta  ! OBC external data
       INTEGER,                      INTENT(in) ::   ib_bdy  ! BDY set index
-      REAL(wp), DIMENSION(:,:), INTENT(inout) :: pua2d, pva2d
-      REAL(wp), DIMENSION(:,:), INTENT(in) ::   pssh, phur, phvr 
+      REAL(wp), DIMENSION(:,:), INTENT(inout) :: pua2d, pva2d ! JT After barotropic velocities
+      REAL(wp), DIMENSION(:,:), INTENT(in) ::   pssh, phur, phvr ! JT SSH after, and phur, phvr = inverse of depth of water 
 
       INTEGER  ::   jb, igrd                         ! dummy loop indices
       INTEGER  ::   ii, ij, iim1, iip1, ijm1, ijp1   ! 2D addresses

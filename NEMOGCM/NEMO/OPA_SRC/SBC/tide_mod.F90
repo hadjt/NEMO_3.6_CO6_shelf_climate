@@ -69,13 +69,14 @@ CONTAINS
       REAL(wp) ::   zqy , zsy, zday, zdj, zhfrac
       !!----------------------------------------------------------------------
       !
-      zqy = AINT( (nyear-1901.)/4. )
-      zsy = nyear - 1900.
+      zqy = AINT( (nyear-1901.)/4. )        ! leap years since 1901
+      zsy = nyear - 1900.                   ! years since 1900
       !
-      zdj  = dayjul( nyear, nmonth, nday )
-      zday = zdj + zqy - 1.
+      zdj  = dayjul( nyear, nmonth, nday )  ! day number of year
+      zday = zdj + zqy - 1.                 ! day number of year + No of leap yrs
+                                            ! i.e. what would doy if every year = 365 day??
       !
-      zhfrac = nsec_day / 3600.
+      zhfrac = nsec_day / 3600.             ! The seconds of the day/3600
       !
       !----------------------------------------------------------------------
       !  Sh_n Longitude of ascending lunar node

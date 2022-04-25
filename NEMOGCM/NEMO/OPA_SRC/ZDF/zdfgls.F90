@@ -177,7 +177,7 @@ CONTAINS
             ustars2(ji,jj) = r1_rau0 * taum(ji,jj) * tmask(ji,jj,1)
             !   
             ! bottom friction (explicit before friction)        
-            ! Note that we chose here not to bound the friction as in dynbfr)   
+            ! Note that we chose here not to bound the friction as in dynbfr)
             ztx2 = (  bfrua(ji,jj)  * ub(ji,jj,mbku(ji,jj)) + bfrua(ji-1,jj) * ub(ji-1,jj,mbku(ji-1,jj))  )   &         
                & * ( 1._wp - 0.5_wp * umask(ji,jj,1) * umask(ji-1,jj,1)  )      
             zty2 = (  bfrva(ji,jj)  * vb(ji,jj,mbkv(ji,jj)) + bfrva(ji,jj-1) * vb(ji,jj-1,mbkv(ji,jj-1))  )   &         
